@@ -1,0 +1,165 @@
+CREATE DATABASE direccion;
+USE direccion;
+
+CREATE TABLE municipios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    clave_municipio VARCHAR(10) NOT NULL,
+    nombre VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE validacion (
+    id_validacion INT AUTO_INCREMENT PRIMARY KEY,
+    nuc_sim VARCHAR(50), -- si se requiere un identificador simulado
+    curp VARCHAR(18) NOT NULL,
+    fecha_consulta DATETIME NOT NULL,
+    municipio VARCHAR(100) NOT NULL, -- también se puede relacionar con "municipios" mediante FK si se desea
+    tipo_predio ENUM('urbano','rural') NOT NULL,
+    superficie_total DECIMAL(10,2) NULL  -- en hectáreas o la unidad que uses
+);
+
+CREATE TABLE pre_registros (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    curp VARCHAR(18) NOT NULL,
+    municipio_id INT NOT NULL,
+    fecha_pre_registro DATE NOT NULL,
+    -- Otros campos necesarios del pre-registro
+    FOREIGN KEY (municipio_id) REFERENCES municipios(id)
+);
+
+CREATE TABLE crear_numero (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    pre_registro_id INT NOT NULL,
+    numero_incremental INT NOT NULL,
+    nuc VARCHAR(11),  -- Se guarda el valor generado manualmente
+    FOREIGN KEY (pre_registro_id) REFERENCES pre_registros(id)
+);
+
+
+CREATE TABLE cuartaentrega (
+    id_nuc INT AUTO_INCREMENT PRIMARY KEY,
+    ord INT NOT NULL,
+    fecha DATE NOT NULL,
+    nuc VARCHAR(11) NOT NULL,
+    municipio VARCHAR(100) NOT NULL,
+    localidad VARCHAR(100) NOT NULL,
+    promovente VARCHAR(100) NOT NULL,
+    referencia_pago VARCHAR(50) NOT NULL,
+    tipo_predio VARCHAR(25) NOT NULL,
+    tipo_tramite VARCHAR(25) NOT NULL,
+    calle VARCHAR(100) NOT NULL,
+    numero VARCHAR(25) NOT NULL,
+    denominacion VARCHAR(100) NOT NULL,
+    superficie_total DECIMAL(10,2),
+    sup_has VARCHAR(50),
+    superficie_construida DOUBLE,
+    orientacion1 VARCHAR(10),
+    superficie1 DOUBLE,
+    colindante1 VARCHAR(100),
+    orientacion2 VARCHAR(10),
+    superficie2 DOUBLE,
+    colindante2 VARCHAR(50),
+    orientacion3 VARCHAR(10),
+    superficie3 DOUBLE,
+    colindante3 VARCHAR(50),
+    orientacion4 VARCHAR(10),
+    superficie4 DOUBLE,
+    colindante4 VARCHAR(50),
+    orientacion5 VARCHAR(10),
+    superficie5 DOUBLE,
+    colindante5 VARCHAR(50),
+    clave_castral VARCHAR(50),
+    cuenta_predial VARCHAR(50),
+    fecha_resolucion VARCHAR(100),
+    juridico VARCHAR(50),
+    forma_valorada VARCHAR(100),
+    expediente VARCHAR(10),
+    plano VARCHAR(10),
+    titulo VARCHAR(10),
+    acuse VARCHAR(10),
+    vinculacion VARCHAR(10),
+    forma_antes VARCHAR(50),
+    nombre_archivo TEXT,
+    estado INT
+);
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(100),
+    status ENUM('active','inactive') DEFAULT 'active',
+    area_id int
+);
+
+CREATE TABLE roles (
+    role_id INT AUTO_INCREMENT PRIMARY KEY,
+    role_name VARCHAR(50) NOT NULL UNIQUE
+    -- Ejemplos: 'superusuario', 'vinculacion_admin', 'vinculacion_reader', 'direccion_admin', 'direccion_reader', etc.
+);
+
+CREATE TABLE user_roles (
+    user_id INT NOT NULL,
+    role_id INT NOT NULL,
+    PRIMARY KEY (user_id, role_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (role_id) REFERENCES roles(role_id)
+);
+
+CREATE TABLE permisos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    role_id INT NOT NULL,
+    permiso_consultar TINYINT(1) DEFAULT 0,
+    permiso_ingresar TINYINT(1) DEFAULT 0,
+    permiso_capturar TINYINT(1) DEFAULT 0,
+    permiso_baja TINYINT(1) DEFAULT 0,
+    FOREIGN KEY (role_id) REFERENCES roles(role_id)
+);
+
+CREATE TABLE historiales (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nuc_id INT NOT NULL, -- referencia a "cuartaentrega"
+    area_origen VARCHAR(50) NOT NULL,
+    area_destino VARCHAR(50) NOT NULL,
+    comentario TEXT,
+    fecha_movimiento TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    usuario_id INT NOT NULL,
+    FOREIGN KEY (nuc_id) REFERENCES cuartaentrega(id_nuc),
+    FOREIGN KEY (usuario_id) REFERENCES users(id)
+);
+
+CREATE TABLE areas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_area VARCHAR(100) NOT NULL UNIQUE,
+    descripcion TEXT
+);
+
+ALTER TABLE crear_numero ADD COLUMN area_actual INT NULL, 
+ADD FOREIGN KEY (area_actual) REFERENCES areas(id);
+
+DELIMITER //
+
+CREATE TRIGGER generar_nuc
+BEFORE INSERT ON crear_numero
+FOR EACH ROW
+BEGIN
+    DECLARE clave_municipio VARCHAR(3);
+    DECLARE anio VARCHAR(2);
+
+    -- Obtener la clave del municipio del pre_registro asociado
+    SELECT clave_municipio INTO clave_municipio
+    FROM municipios
+    WHERE id = (SELECT municipio_id FROM pre_registros WHERE id = NEW.pre_registro_id);
+
+    -- Obtener los últimos 2 dígitos del año del pre_registro
+    SELECT RIGHT(YEAR(fecha_pre_registro), 2) INTO anio
+    FROM pre_registros
+    WHERE id = NEW.pre_registro_id;
+
+    -- Generar el NUC concatenando clave_municipio, número incremental y año
+    SET NEW.nuc = CONCAT(clave_municipio, LPAD(NEW.numero_incremental, 6, '0'), anio);
+END;
+
+//
+
+DELIMITER ;
