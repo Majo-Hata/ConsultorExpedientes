@@ -3,15 +3,22 @@ session_start();
 require 'config.php';
 
 $user_id = $_SESSION['user_id'];
-$area_query = $conn->prepare("SELECT nombre_area FROM areas WHERE id = (SELECT area_id FROM users WHERE id = ?)");
+
+// Obtener el área del usuario
+$area_query = $conn->prepare("SELECT area_id FROM users WHERE id = ?");
 $area_query->bind_param("i", $user_id);
 $area_query->execute();
 $area_result = $area_query->get_result();
-$area = $area_result->fetch_assoc()['nombre_area'];
+$area_id = $area_result->fetch_assoc()['area_id'];
 
-// Obtener los NUCs que pertenecen a esta área
-$stmt = $conn->prepare("SELECT * FROM cuartaentrega WHERE vinculacion = ?");
-$stmt->bind_param("s", $area);
+// Obtener los NUCs que están en el área del usuario
+$stmt = $conn->prepare("
+    SELECT c.id_nuc, c.nuc, c.municipio, c.localidad 
+    FROM historiales h
+    JOIN cuartaentrega c ON h.nuc_id = c.id_nuc
+    WHERE h.area_destino = ?
+");
+$stmt->bind_param("i", $area_id);
 $stmt->execute();
 $nucs = $stmt->get_result();
 ?>
