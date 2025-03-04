@@ -129,13 +129,22 @@ CREATE TABLE historiales (
 );
 
 CREATE TABLE areas (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    area_id INT AUTO_INCREMENT PRIMARY KEY,
     nombre_area VARCHAR(100) NOT NULL UNIQUE,
     descripcion TEXT
 );
+ALTER TABLE users 
+ADD CONSTRAINT fk_users_areas 
+FOREIGN KEY (area_id) REFERENCES areas(area_id)
+ON DELETE SET NULL
+ON UPDATE CASCADE;
 
-ALTER TABLE crear_numero ADD COLUMN area_actual INT NULL, 
-ADD FOREIGN KEY (area_actual) REFERENCES areas(id);
+ALTER TABLE crear_numero
+ADD CONSTRAINT fk_area_actual 
+FOREIGN KEY (area_actual) REFERENCES areas(area_id)
+ON UPDATE CASCADE
+ON DELETE SET NULL;
+
 
 DELIMITER //
 

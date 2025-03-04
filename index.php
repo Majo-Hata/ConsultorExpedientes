@@ -6,7 +6,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST['password'];
 
     $stmt = $conn->prepare("
-        SELECT u.id, u.username, u.password, r.role_name 
+        SELECT u.id, u.username, u.password, u.area_id, r.role_name 
         FROM users u
         LEFT JOIN user_roles ur ON u.id = ur.user_id
         LEFT JOIN roles r ON ur.role_id = r.role_id
@@ -22,6 +22,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['usuario'] = $user['username'];
         $_SESSION['rol'] = $user['role_name'];
+        $_SESSION['area_id'] = $user['area_id']; // Guardamos el area_id
+
         header("Location: dashboard.php");
         exit();
     } else {
@@ -29,6 +31,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html>
 <head>
