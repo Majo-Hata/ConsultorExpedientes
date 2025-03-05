@@ -21,6 +21,7 @@ $stmt->close();
 
 // Definir las opciones del menú según el área
 $menu = [
+    NULL => "Menú Super Administrador",
     1 => "Menú Informática",
     2 => "Menú Jurídico",
     3 => "Menú Dirección",
@@ -33,7 +34,7 @@ $area_nombre = $menu[$area_id] ?? "Área Desconocida";
 $stmt = $conn->prepare("
     SELECT c.id_nuc, c.nuc, c.municipio, c.localidad 
     FROM historiales h
-    JOIN cuartaentrega c ON h.nuc_id = c.id_nuc
+    JOIN ingresos c ON h.nuc_id = c.id_nuc
     WHERE h.area_destino = ?
 ");
 $stmt->bind_param("i", $area_id);
@@ -55,7 +56,7 @@ $stmt->close();
 
     <ul>
         <?php if ($area_id == NULL): ?>
-            <li><a href="validacion_curp.php">Primer paso</a></li>
+            <li><a href="validacion_curp.php">Ingresar nuevo expediente</a></li>
             <li><a href="usuarios.php">Gestión de Usuarios</a></li>
             <li><a href="areas.php">Gestión de Áreas</a></li>
             <li><a href="historial.php">Historial de Movimientos</a></li>

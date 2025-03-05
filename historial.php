@@ -44,6 +44,6 @@ $result = $conn->query($query);
         <?php endwhile; ?>
     </table>
 
-    <a href="index.php">Volver</a>
+    <a href="dashboard.php">Volver</a>
 </body>
 </html>

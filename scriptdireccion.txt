@@ -33,52 +33,29 @@ CREATE TABLE crear_numero (
     nuc VARCHAR(11),  -- Se guarda el valor generado manualmente
     FOREIGN KEY (pre_registro_id) REFERENCES pre_registros(id)
 );
+ALTER TABLE crear_numero
+ADD CONSTRAINT fk_area_actual 
+FOREIGN KEY (area_actual) REFERENCES areas(area_id)
+ON UPDATE CASCADE
+ON DELETE SET NULL;
 
-
-CREATE TABLE cuartaentrega (
+CREATE TABLE ingresos (
     id_nuc INT AUTO_INCREMENT PRIMARY KEY,
-    ord INT NOT NULL,
     fecha DATE NOT NULL,
     nuc VARCHAR(11) NOT NULL,
+    nuc_sim VARCHAR(11) NOT NULL,
     municipio VARCHAR(100) NOT NULL,
     localidad VARCHAR(100) NOT NULL,
     promovente VARCHAR(100) NOT NULL,
     referencia_pago VARCHAR(50) NOT NULL,
     tipo_predio VARCHAR(25) NOT NULL,
     tipo_tramite VARCHAR(25) NOT NULL,
-    calle VARCHAR(100) NOT NULL,
-    numero VARCHAR(25) NOT NULL,
+    direccion VARCHAR(100) NOT NULL,
     denominacion VARCHAR(100) NOT NULL,
     superficie_total DECIMAL(10,2),
     sup_has VARCHAR(50),
     superficie_construida DOUBLE,
-    orientacion1 VARCHAR(10),
-    superficie1 DOUBLE,
-    colindante1 VARCHAR(100),
-    orientacion2 VARCHAR(10),
-    superficie2 DOUBLE,
-    colindante2 VARCHAR(50),
-    orientacion3 VARCHAR(10),
-    superficie3 DOUBLE,
-    colindante3 VARCHAR(50),
-    orientacion4 VARCHAR(10),
-    superficie4 DOUBLE,
-    colindante4 VARCHAR(50),
-    orientacion5 VARCHAR(10),
-    superficie5 DOUBLE,
-    colindante5 VARCHAR(50),
-    clave_castral VARCHAR(50),
-    cuenta_predial VARCHAR(50),
-    fecha_resolucion VARCHAR(100),
-    juridico VARCHAR(50),
     forma_valorada VARCHAR(100),
-    expediente VARCHAR(10),
-    plano VARCHAR(10),
-    titulo VARCHAR(10),
-    acuse VARCHAR(10),
-    vinculacion VARCHAR(10),
-    forma_antes VARCHAR(50),
-    nombre_archivo TEXT,
     estado INT
 );
 
@@ -139,12 +116,6 @@ FOREIGN KEY (area_id) REFERENCES areas(area_id)
 ON DELETE SET NULL
 ON UPDATE CASCADE;
 
-ALTER TABLE crear_numero
-ADD CONSTRAINT fk_area_actual 
-FOREIGN KEY (area_actual) REFERENCES areas(area_id)
-ON UPDATE CASCADE
-ON DELETE SET NULL;
-
 
 DELIMITER //
 
@@ -172,3 +143,17 @@ END;
 //
 
 DELIMITER ;
+
+
+
+Directora(Todos los permisos)
+Director(Todos los permisos)
+Coodinadores (Todos los permisos)
+SuperAdminstrador (Todos los permisos y solo el puede asignar usuarios)
+Analistas y consultores (solo hacer consulta)
+Subidirector (Todos los permisos)
+
+Areas
+Area tecnica
+
+Una pagina para visualizar los expedientes (tabla de cuartaentrega, cambiar a ingresos)

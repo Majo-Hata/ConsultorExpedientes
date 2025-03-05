@@ -53,5 +53,7 @@ $roles = $conn->query("SELECT * FROM roles");
         </select>
         <button type="submit">Asignar</button>
     </form>
+
+    <a href="dashboard.php">Volver</a>
 </body>
 </html>

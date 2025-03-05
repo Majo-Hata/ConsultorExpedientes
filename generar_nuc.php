@@ -1,11 +1,19 @@
 <?php
 session_start();
 include 'config.php';
-
-if (!isset($_SESSION['pre_registro_id'])) {
-    echo "No se encontró un pre-registro. Por favor, valide su CURP primero.";
-    exit();
+if (!isset($_SESSION['curp_validado']) || !isset($_SESSION['pre_registro_id']) || !isset($_SESSION['nuc_sim'])) {
+    die("ERROR: No se encontró un CURP, municipio o NUC asociado.");
 }
+$curp = $_SESSION['curp_validado'];
+$municipio_id = $_SESSION['municipio_id'];
+$pre_registro_id = $_SESSION['pre_registro_id'];
+$nuc_sim = $_SESSION['nuc_sim']; 
+echo "CURP: " . htmlspecialchars($curp) . "<br>";
+echo "Municipio ID: " . htmlspecialchars($municipio_id) . "<br>";
+echo "Pre-registro ID: " . htmlspecialchars($pre_registro_id) . "<br>";
+echo "NUC_SIM: " . htmlspecialchars($nuc_sim) . "<br>";
+
+// Continuamos con la generación del nuc
 
 $pre_registro_id = $_SESSION['pre_registro_id'];
 
@@ -82,7 +90,7 @@ $stmt_insert_validacion->bind_param("sssisd", $nuc_sim, $curp, $fecha_consulta, 
 $stmt_insert_validacion->execute();
 $stmt_insert_validacion->close();
 
-// 5. Obtener el número incremental para el NUC
+// 5. Obtener el número incremental para el NUC (máximo actual + 1)
 $query_incremental = "SELECT COALESCE(MAX(numero_incremental), 0) + 1 AS nuevo_incremental FROM crear_numero";
 $result_incremental = $conn->query($query_incremental);
 $row_incremental = $result_incremental->fetch_assoc();
@@ -93,6 +101,8 @@ $anio = date("y");
 
 // 7. Generar el NUC final
 $nuc_generado = $clave_municipio . $numero_incremental . $anio;
+echo "NUC a insertar: " . htmlspecialchars($nuc_generado) . "<br>";
+
 
 // 8. Insertar en `crear_numero`
 $stmt_insert_nuc = $conn->prepare("INSERT INTO crear_numero (pre_registro_id, numero_incremental, nuc) VALUES (?, ?, ?)");
@@ -100,7 +110,6 @@ $stmt_insert_nuc->bind_param("iis", $pre_registro_id, $row_incremental['nuevo_in
 
 if ($stmt_insert_nuc->execute()) {
     echo "NUC generado correctamente: <strong>$nuc_generado</strong><br>";
-    echo "Identificador simulado (nuc_sim): <strong>$nuc_sim</strong>";
 } else {
     echo "Error al generar NUC: " . $conn->error;
 }
@@ -114,7 +123,6 @@ if ($stmt_insert_nuc->execute()) {
 <body>
     <h2>Generar NUC</h2>
     <p>NUC generado: <strong><?php echo htmlspecialchars($nuc_generado); ?></strong></p>
-    <p>Nuc Simulado: <strong><?php echo htmlspecialchars($nuc_sim); ?></strong></p>
     <a href="dashboard.php">Volver al Dashboard</a>
 </body>
 </html>

@@ -25,7 +25,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 
 // Obtener NUCs disponibles
-$nucs = $conn->query("SELECT id_nuc, nuc FROM cuartaentrega");
+$nucs = $conn->query("SELECT id_nuc, nuc FROM ingresos");
 
 // Obtener áreas disponibles (guardarlas en un array para reutilizarlo)
 $areas_result = $conn->query("SELECT nombre_area FROM areas");
@@ -72,5 +72,7 @@ while ($row = $areas_result->fetch_assoc()) {
 
         <button type="submit">Registrar Movimiento</button>
     </form>
+
+    <a href="dashboard.php">Volver</a>
 </body>
 </html>

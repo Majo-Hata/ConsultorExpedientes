@@ -7,7 +7,6 @@ if (!isset($_SESSION['user_id'])) {
     exit(); 
 }
 
-// Variable para mensajes
 $mensaje = "";
 
 // Obtener lista de municipios
@@ -28,7 +27,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $municipio_nombre = $result_mun->fetch_assoc()['nombre'] ?? '';
     $stmt_mun->close();
 
-    // Validar si el CURP ya tiene registros previos
+    // Verificar si el CURP ya tiene registros previos
     $stmt_validacion = $conn->prepare("
         SELECT tipo_predio, SUM(superficie_total) AS total_superficie, COUNT(*) AS total_predios 
         FROM validacion 
@@ -53,34 +52,68 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     $stmt_validacion->close();
 
-    // Solo aplicar restricciones si ya hay registros previos para el CURP
-    if ($total_urbanos > 0 || $total_superficie_rural > 0) {
-        // Validar si el CURP excede los límites
-        if (($tipo_predio === "urbano" && $total_urbanos >= 1) || 
-            ($tipo_predio === "rural" && ($total_superficie_rural + $superficie_total) > 6)) {
-            $permitido = false;
-        }
+    // Verificar si el CURP cumple los requisitos
+    if (($tipo_predio === "urbano" && $total_urbanos >= 1) || 
+        ($tipo_predio === "rural" && ($total_superficie_rural + $superficie_total) > 6)) {
+        $permitido = false;
     }
 
-    // Si cumple con las restricciones, insertar en la tabla de validación
     if ($permitido) {
         $fecha_consulta = date("Y-m-d H:i:s");
 
-        $stmt_insert_validacion = $conn->prepare("
-            INSERT INTO validacion (nuc_sim, curp, fecha_consulta, municipio, tipo_predio, superficie_total) 
-            VALUES (?, ?, ?, ?, ?, ?)
+        // ⚠️ Verificar si el registro ya existe antes de insertar en validación
+        $stmt_check_validacion = $conn->prepare("
+            SELECT COUNT(*) FROM validacion 
+            WHERE curp = ? AND municipio = ? AND tipo_predio = ? AND nuc_sim = ?
         ");
-        $stmt_insert_validacion->bind_param("sssssd", $nuc_sim, $curp, $fecha_consulta, $municipio_nombre, $tipo_predio, $superficie_total);
+        $stmt_check_validacion->bind_param("ssss", $curp, $municipio_nombre, $tipo_predio, $nuc_sim);
+        $stmt_check_validacion->execute();
+        $stmt_check_validacion->bind_result($existe);
+        $stmt_check_validacion->fetch();
+        $stmt_check_validacion->close();
 
-        if ($stmt_insert_validacion->execute()) {
-            $_SESSION['curp_validado'] = $curp; // Guardamos la CURP validada en sesión
-            $_SESSION['municipio_id'] = $municipio_id;
-            header("Location: generar_nuc.php");
-            exit();
-        } else {
-            $mensaje = "Error al registrar validación: " . $conn->error;
+        if ($existe == 0) { // Solo inserta si no existe
+            $stmt_insert_validacion = $conn->prepare("
+                INSERT INTO validacion (nuc_sim, curp, fecha_consulta, municipio, tipo_predio, superficie_total) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt_insert_validacion->bind_param("sssssd", $nuc_sim, $curp, $fecha_consulta, $municipio_nombre, $tipo_predio, $superficie_total);
+            $stmt_insert_validacion->execute();
+            $stmt_insert_validacion->close();
         }
-        $stmt_insert_validacion->close();
+
+        // ⚠️ Verificar si ya existe un pre_registro antes de insertarlo
+        $stmt_check_pre_registro = $conn->prepare("
+            SELECT id FROM pre_registros WHERE curp = ? AND municipio_id = ?
+        ");
+        $stmt_check_pre_registro->bind_param("si", $curp, $municipio_id);
+        $stmt_check_pre_registro->execute();
+        $stmt_check_pre_registro->bind_result($pre_registro_id);
+        $stmt_check_pre_registro->fetch();
+        $stmt_check_pre_registro->close();
+
+        if (!$pre_registro_id) { // Solo inserta si no existe
+            $stmt_insert_pre_registro = $conn->prepare("
+                INSERT INTO pre_registros (curp, municipio_id, fecha_pre_registro) 
+                VALUES (?, ?, ?)
+            ");
+            $fecha_pre_registro = date("Y-m-d");
+            $stmt_insert_pre_registro->bind_param("sis", $curp, $municipio_id, $fecha_pre_registro);
+
+            if ($stmt_insert_pre_registro->execute()) {
+                $pre_registro_id = $conn->insert_id; // Guardamos el nuevo ID
+            }
+            $stmt_insert_pre_registro->close();
+        }
+
+        // Guardar datos en sesión
+        $_SESSION['curp_validado'] = $curp;
+        $_SESSION['municipio_id'] = $municipio_id;
+        $_SESSION['pre_registro_id'] = $pre_registro_id;
+        $_SESSION['nuc_sim'] = $nuc_sim; 
+
+        header("Location: generar_nuc.php");
+        exit();
     } else {
         $mensaje = "No cumple con los requisitos.";
     }
@@ -92,7 +125,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <title>Validación CURP</title>
     <script>
-        // Función para mostrar/ocultar el campo de superficie total según el tipo de predio
         function toggleSuperficie() {
             var tipoPredio = document.getElementById("tipo_predio").value;
             var superficieInput = document.getElementById("superficie_total");
@@ -136,7 +168,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <input type="number" step="0.01" name="superficie_total" id="superficie_total" disabled>
         <br><br>
 
-        <label>NUC Simulado:</label>
+        <label>NUC_SIM:</label>
         <input type="text" name="nuc_sim" required>
         <br><br>
 
@@ -144,5 +176,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </form>
 
     <?php if (!empty($mensaje)) echo "<p>$mensaje</p>"; ?>
+
+    <a href="dashboard.php">Volver</a>
 </body>
 </html>
