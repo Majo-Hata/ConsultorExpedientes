@@ -50,6 +50,6 @@ $result = $conn->query("SELECT * FROM areas");
         <?php endwhile; ?>
     </ul>
 
-    <a href="index.php">Volver</a>
+    <a href="dashboard.php">Volver al Dashboard</a>
 </body>
 </html>

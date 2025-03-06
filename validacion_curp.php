@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id'])) {
 $mensaje = "";
 
 // Obtener lista de municipios
-$municipios = $conn->query("SELECT id, nombre FROM municipios ORDER BY nombre ASC");
+$municipios = $conn->query("SELECT municipio_id, nombre FROM municipios ORDER BY nombre ASC");
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $curp = trim($_POST['curp']);
@@ -20,7 +20,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $nuc_sim = trim($_POST['nuc_sim']);
 
     // Obtener nombre del municipio
-    $stmt_mun = $conn->prepare("SELECT nombre FROM municipios WHERE id = ?");
+    $stmt_mun = $conn->prepare("SELECT nombre FROM municipios WHERE municipio_id = ?");
     $stmt_mun->bind_param("i", $municipio_id);
     $stmt_mun->execute();
     $result_mun = $stmt_mun->get_result();
@@ -150,7 +150,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <select name="municipio_id" required>
             <option value="">-- Seleccione un Municipio --</option>
             <?php while ($row = $municipios->fetch_assoc()): ?>
-                <option value="<?php echo $row['id']; ?>">
+                <option value="<?php echo $row['municipio_id']; ?>">
                     <?php echo htmlspecialchars($row['nombre']); ?>
                 </option>
             <?php endwhile; ?>

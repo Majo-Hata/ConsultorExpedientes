@@ -43,5 +43,6 @@ $result = $conn->query($sql);
             </tr>
         <?php } ?>
     </table>
+    <a href="dashboard.php">Volver al Dashboard</a>
 </body>
 </html>

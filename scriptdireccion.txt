@@ -9,7 +9,7 @@ CREATE TABLE municipios (
 
 CREATE TABLE validacion (
     id_validacion INT AUTO_INCREMENT PRIMARY KEY,
-    nuc_sim VARCHAR(50), -- si se requiere un identificador simulado
+    nuc_sim VARCHAR(50),
     curp VARCHAR(18) NOT NULL,
     fecha_consulta DATETIME NOT NULL,
     municipio VARCHAR(100) NOT NULL, -- también se puede relacionar con "municipios" mediante FK si se desea
@@ -61,18 +61,20 @@ CREATE TABLE ingresos (
 
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    area_id int,
+    role_id int
     username VARCHAR(50) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100),
     status ENUM('active','inactive') DEFAULT 'active',
-    area_id int
+    FOREIGN KEY (area_id) REFERENCES areas(area_id),
+    FOREIGN KEY (role_id) REFERENCES roles(role_id)
 );
 
 CREATE TABLE roles (
     role_id INT AUTO_INCREMENT PRIMARY KEY,
     role_name VARCHAR(50) NOT NULL UNIQUE
-    -- Ejemplos: 'superusuario', 'vinculacion_admin', 'vinculacion_reader', 'direccion_admin', 'direccion_reader', etc.
 );
 
 CREATE TABLE user_roles (
@@ -95,7 +97,7 @@ CREATE TABLE permisos (
 
 CREATE TABLE historiales (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nuc_id INT NOT NULL, -- referencia a "cuartaentrega"
+    nuc_id INT NOT NULL,
     area_origen VARCHAR(50) NOT NULL,
     area_destino VARCHAR(50) NOT NULL,
     comentario TEXT,
@@ -117,43 +119,13 @@ ON DELETE SET NULL
 ON UPDATE CASCADE;
 
 
-DELIMITER //
-
-CREATE TRIGGER generar_nuc
-BEFORE INSERT ON crear_numero
-FOR EACH ROW
-BEGIN
-    DECLARE clave_municipio VARCHAR(3);
-    DECLARE anio VARCHAR(2);
-
-    -- Obtener la clave del municipio del pre_registro asociado
-    SELECT clave_municipio INTO clave_municipio
-    FROM municipios
-    WHERE id = (SELECT municipio_id FROM pre_registros WHERE id = NEW.pre_registro_id);
-
-    -- Obtener los últimos 2 dígitos del año del pre_registro
-    SELECT RIGHT(YEAR(fecha_pre_registro), 2) INTO anio
-    FROM pre_registros
-    WHERE id = NEW.pre_registro_id;
-
-    -- Generar el NUC concatenando clave_municipio, número incremental y año
-    SET NEW.nuc = CONCAT(clave_municipio, LPAD(NEW.numero_incremental, 6, '0'), anio);
-END;
-
-//
-
-DELIMITER ;
-
-
-
 Directora(Todos los permisos)
 Director(Todos los permisos)
+Subidirector (Todos los permisos)
 Coodinadores (Todos los permisos)
 SuperAdminstrador (Todos los permisos y solo el puede asignar usuarios)
 Analistas y consultores (solo hacer consulta)
-Subidirector (Todos los permisos)
 
-Areas
-Area tecnica
 
-Una pagina para visualizar los expedientes (tabla de cuartaentrega, cambiar a ingresos)
+Una pagina para visualizar los expedientes (tabla de ingresos) -> Página de consulta
+Falta agregar que captura.php tenga listas desplegables para facilitar su trabajo ademas de agregar lo mismo que en captura de general
