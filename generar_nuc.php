@@ -62,6 +62,17 @@ if (!$stmt_insert_nuc->execute()) {
 }
 
 $stmt_insert_nuc->close();
+
+// Guardar datos en sesión para prellenar en capturar.php
+$_SESSION['nuc'] = $nuc_generado;
+$_SESSION['nuc_sim'] = $nuc_sim;
+$_SESSION['municipio'] = $clave_municipio;
+$_SESSION['curp_validado'] = $curp;
+
+// Redirigir a la página de captura
+header("Location: capturar.php");
+exit();
+
 ?>
 
 <!DOCTYPE html>
