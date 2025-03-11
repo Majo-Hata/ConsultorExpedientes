@@ -31,21 +31,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Iniciar Sesión</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciar sesión</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h2>Login</h2>
-    <form method="POST">
-        <label>Email:</label>
-        <input type="email" name="email" required>
-        <label>Contraseña:</label>
+  <div class="wrapper">
+    <form action="index.php" method="POST">
+      <h2>Login</h2>
+        <div class="input-field">
+        <input type="text" name="email" required>
+        <label>Enter your email</label>
+      </div>
+      <div class="input-field">
         <input type="password" name="password" required>
-        <button type="submit">Iniciar sesión</button>
+        <label>Enter your password</label>
+      </div>
+      <button type="submit">Log In</button>
+      <div class="register">
+        <p>Si no cuenta con una cuenta, solicitala en el área de informática</p>
+      </div>
     </form>
     <?php if (isset($error)) echo "<p style='color:red;'>$error</p>"; ?>
+  </div>
 </body>
 </html>
