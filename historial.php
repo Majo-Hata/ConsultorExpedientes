@@ -1,4 +1,5 @@
 <?php
+session_start();
 include 'config.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -7,11 +8,26 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Obtener historial de movimientos
-$query = "SELECT h.id, h.nuc_id, h.area_origen, h.area_destino, h.comentario, h.fecha_movimiento, u.full_name 
-          FROM historiales h
-          JOIN users u ON h.usuario_id = u.id
-          ORDER BY h.fecha_movimiento DESC";
-$result = $conn->query($query);
+$search_nuc = isset($_POST['search_nuc']) ? trim($_POST['search_nuc']) : '';
+
+if ($search_nuc) {
+    $query = "SELECT h.id, h.nuc_id, h.area_origen, h.area_destino, h.comentario, h.fecha_movimiento, u.full_name 
+              FROM historiales h
+              JOIN users u ON h.usuario_id = u.id
+              WHERE h.nuc_id = ?
+              ORDER BY h.fecha_movimiento DESC";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("s", $search_nuc);
+    $stmt->execute();
+    $result = $stmt->get_result();
+} else {
+    $query = "SELECT h.id, h.nuc_id, h.area_origen, h.area_destino, h.comentario, h.fecha_movimiento, u.full_name 
+              FROM historiales h
+              JOIN users u ON h.usuario_id = u.id
+              ORDER BY h.fecha_movimiento DESC
+              LIMIT 10";
+    $result = $conn->query($query);
+}
 ?>
 
 <!DOCTYPE html>
@@ -22,6 +38,13 @@ $result = $conn->query($query);
 </head>
 <body>
     <h2>Historial de Movimientos</h2>
+
+    <form method="POST" action="historial.php">
+        <label for="search_nuc">Buscar por NUC:</label>
+        <input type="text" id="search_nuc" name="search_nuc" value="<?php echo htmlspecialchars($search_nuc); ?>">
+        <button type="submit">Buscar</button>
+        <button type="button" onclick="window.location.href='historial.php'">Borrar consulta</button>
+    </form>
 
     <table border="1">
         <tr>

@@ -22,12 +22,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['usuario'] = $user['username'];
         $_SESSION['rol'] = $user['role_name'];
-        $_SESSION['area_id'] = $user['area_id']; // Guardamos el area_id
+        $_SESSION['area_id'] = $user['area_id'];
 
         header("Location: dashboard.php");
         exit();
     } else {
-        $error = "Credenciales incorrectas o usuario inactivo.";
+        $error = "Correo o contraseña incorrectos.";
     }
 }
 ?>
@@ -58,5 +58,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </form>
     <?php if (isset($error)) echo "<p style='color:red;'>$error</p>"; ?>
   </div>
+  <script>
+        const images = [
+            'images/puebla.jpg',
+            'images/puebla2.jpg',
+            'images/puebla3.jpg',
+            'images/puebla4.jpg',
+            'images/puebla5.jpg',
+            'images/puebla6.jpg',
+            'images/puebla7.jpg'
+        ];
+
+        let currentIndex = 0;
+
+        function changeBackground() {
+            currentIndex = (currentIndex + 1) % images.length;
+            document.body.style.backgroundImage = `url(${images[currentIndex]})`;
+        }
+
+        setInterval(changeBackground, 5000); // Cambia cada 5 segundos
+        document.body.style.backgroundImage = `url(${images[currentIndex]})`; // Inicializa con la primera imagen
+    </script>
 </body>
 </html>
