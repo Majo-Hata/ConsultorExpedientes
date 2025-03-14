@@ -1935,6 +1935,33 @@ input, select, textarea {
 			background: #eee;
 		}
 
+		/* Estilo para el contenedor de la tabla */
+		#consultar .container {
+			overflow-x: auto; /* Permite el desplazamiento horizontal si la tabla es demasiado ancha */
+		}
+
+		/* Estilo para la tabla */
+		#consultar table {
+			width: 100%; /* Asegura que la tabla ocupe el 100% del contenedor */
+			border-collapse: collapse; /* Elimina los espacios entre las celdas */
+		}
+
+		/* Estilo para las celdas de la tabla */
+		#consultar th, #consultar td {
+			padding: 8px; /* Añade espacio dentro de las celdas */
+			text-align: left; /* Alinea el texto a la izquierda */
+			border: 1px solid #ddd; /* Añade un borde a las celdas */
+			font-size: 14px; /* Ajusta el tamaño de la fuente */
+		}
+
+		/* Estilo para la cabecera de la tabla */
+		#consultar th {
+			text-align: left;
+			padding: 0.5em 1em 0.5em 1em;
+			color: #fff;
+			background: #222729 url("images/overlay.png");
+		}
+
 /* Button */
 
 	input[type="button"],
@@ -2270,7 +2297,7 @@ input, select, textarea {
 		/* Basic */
 
 			body, input, textarea, select {
-				font-size: 17pt;
+				font-size: d;
 			}
 
 		/* Header */
@@ -2626,8 +2653,21 @@ input, select, textarea {
 				margin: 1em 0 0 0;
 			}
 
-				#footer .copyright li:first-child {
-					margin-top: 0;
-				}
+			#footer .copyright li:first-child {
+				margin-top: 0;
+			}}
 
-	}
+			input[type="checkbox"] {
+				appearance: auto; /* Restaura el estilo predeterminado */
+				-webkit-appearance: auto;
+				-moz-appearance: auto;
+				width: 20px;
+				height: 20px;
+				cursor: pointer;
+				position: relative;
+				z-index: 9999;
+				opacity: 1 !important;
+  				visibility: visible !important;
+			  }
+			  
+			  

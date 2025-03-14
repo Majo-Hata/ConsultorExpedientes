@@ -88,13 +88,15 @@ CREATE TABLE user_roles (
 
 CREATE TABLE permisos (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    role_id INT NOT NULL,
+    user_id INT NOT NULL,
     permiso_consultar TINYINT(1) DEFAULT 0,
     permiso_ingresar TINYINT(1) DEFAULT 0,
     permiso_capturar TINYINT(1) DEFAULT 0,
     permiso_baja TINYINT(1) DEFAULT 0,
-    FOREIGN KEY (role_id) REFERENCES roles(role_id)
+    procesos TINYINT(1) DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
 
 CREATE TABLE historiales (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -119,48 +121,3 @@ FOREIGN KEY (area_id) REFERENCES areas(area_id)
 ON DELETE SET NULL
 ON UPDATE CASCADE;
 
-
-Directora(Todos los permisos)
-Director(Todos los permisos)
-Subidirector (Todos los permisos)
-Coodinadores (Todos los permisos)
-SuperAdminstrador (Todos los permisos y solo el puede asignar usuarios)
-Analistas y consultores (solo hacer consulta)
-
-
-Una pagina para visualizar los expedientes (tabla de ingresos) -> Página de consulta
-Falta agregar que captura.php tenga listas desplegables para facilitar su trabajo ademas de agregar lo mismo que en captura de general
-
-Super usuario: Informatica es el unico que podrá crear usuarios, asignar permisos, gestion de usuaios, gestion de areas
-JC historial de movimientos, asignar movimientos
-coordinadores, directores superusuarios y subdirector asignar movimientos, ingresar un nuevo expedientes
-
-Gestion de usuarios -> Activar o desactivar usuarios
-Gestion de areas -> Tabla de usuarios
-Historial de expedientes -> igual
-Asignar movimiento ->   Asignar tarea a expedientes
-Gestionar permisos -> Permisos de usuario
-Consulta de ingressos ->Consulta de ingresos de expedientes
-Ingresar nuevo expediente ->  Ingresar nuevo expediente
-Formulario de captura -> Captura de expediente
-
-Una vez validado y generado el nuc, mandar directamente a capturar los datos de expediente completos
-Super usuario pueda ver quienes agregaron que nuc y la fecha (poder habilitarlo para JC)
-JC es coordinador
-
-Dar de baja solo super usuario
-Agregar si es procedente o no procedente al momento de capturar
-Otra consulta de historial
-
-Plantillas para la pagina:
-https://www.tooplate.com/view/2095-level
-https://templatemo.com/tm-532-next-level
-https://templatemo.com/tm-531-reflux
-
-Paginas para buscar:
-https://colorlib.com/wp/free-wordpress-themes/
-https://html5up.net/
-https://templatemo.com/page/8
-
-Poner hasta abajo:
-Prologue por HTML5 UP, modificado por Marijose Carrasco — https://html5up.net/prologue

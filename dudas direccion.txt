@@ -1,0 +1,52 @@
+
+Directora(Todos los permisos)
+Director(Todos los permisos)
+Subidirector (Todos los permisos)
+Coodinadores (Todos los permisos)
+SuperAdminstrador (Todos los permisos y solo el puede asignar usuarios)
+Analistas y consultores (solo hacer consulta)
+
+
+Una pagina para visualizar los expedientes (tabla de ingresos) -> Página de consulta
+Falta agregar que captura.php tenga listas desplegables para facilitar su trabajo ademas de agregar lo mismo que en captura de general
+
+Super usuario: Informatica es el unico que podrá crear usuarios, asignar permisos, gestion de usuaios, gestion de areas
+JC historial de movimientos, asignar movimientos
+coordinadores, directores superusuarios y subdirector asignar movimientos, ingresar un nuevo expedientes
+
+Gestion de usuarios -> Activar o desactivar usuarios
+Gestion de areas -> Agregar nueva area
+Historial de expedientes -> igual
+Asignar movimiento ->   Asignar tarea a expedientes
+Gestionar permisos -> Permisos de usuario
+Consulta de ingressos ->Consulta de ingresos de expedientes
+Ingresar nuevo expediente ->  Ingresar nuevo expediente
+Formulario de captura -> Captura de expediente
+
+Una vez validado y generado el nuc, mandar directamente a capturar los datos de expediente completos
+Super usuario pueda ver quienes agregaron que nuc y la fecha (poder habilitarlo para JC)
+JC es coordinador
+
+Dar de baja solo super usuario
+Agregar si es procedente o no procedente al momento de capturar
+Otra consulta de historial
+
+
+Poner hasta abajo:
+Prologue por HTML5 UP, modificado por Marijose Carrasco — https://html5up.net/prologue
+
+
+//Nueva actualizacion
+Agregar el permiso de asignar tarea
+Modificar cuando crea un nuevo usuario
+Permisos de usuario que sea dinamico
+Asignar permisos a usuarios y no al rol
+Agregar el filtro por procedente
+Filtro por Nuc_sim y quitar referencia_pago
+Modificar ingresar nuevo expediente  - Hacer pruebas para capturar
+Warning: Undefined array key "filtro" in C:\wamp64\www\Prueba\dashboard.php on line 632
+
+Dar de baja en expedientes
+( ! ) Warning: Undefined array key "fecha" in C:\wamp64\www\Prueba\dashboard.php on line 1003
+( ! ) Warning: Undefined array key "filtro" in C:\wamp64\www\Prueba\dashboard.php on line 632
+( ! ) Warning: Cannot modify header information - headers already sent by (output started at C:\wamp64\www\Prueba\dashboard.php:632) in C:\wamp64\www\Prueba\dashboard.php on line 911

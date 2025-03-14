@@ -7,60 +7,94 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Obtener usuarios activos y roles disponibles
-$users = $conn->query("SELECT id, username, role_id FROM users WHERE status='active'");
-$roles = $conn->query("SELECT * FROM roles");
+// Obtener usuarios activos
+$users = $conn->query("SELECT id, username FROM users WHERE status='active'");
 
-// Procesar cambio de rol
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['user_id'])) {
-    $user_id = $_POST['user_id'];
-    $new_role_id = $_POST['role_id'];
+// Manejo de peticiones AJAX
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (isset($_POST['action'])) {
+        if ($_POST['action'] == "get_permisos" && isset($_POST['user_id'])) {
+            $user_id = $_POST['user_id'];
+            $query = $conn->prepare("SELECT * FROM permisos WHERE user_id = ?");
+            $query->bind_param("i", $user_id);
+            $query->execute();
+            $result = $query->get_result();
+            $permisos = $result->fetch_assoc() ?? [
+                'permiso_consultar' => 0,
+                'permiso_ingresar' => 0,
+                'permiso_capturar' => 0,
+                'permiso_baja' => 0,
+                'procesos' => 0
+            ];
+            echo json_encode($permisos);
+            exit();
+        }
 
-    // Actualizar el rol del usuario
-    $update_user_role = $conn->prepare("UPDATE users SET role_id = ? WHERE id = ?");
-    $update_user_role->bind_param("ii", $new_role_id, $user_id);
-    $update_user_role->execute();
-}
+        if ($_POST['action'] == "guardar_permisos" && isset($_POST['user_id'])) {
+            $user_id = $_POST['user_id'];
+            $permiso_consultar = isset($_POST['permiso_consultar']) ? 1 : 0;
+            $permiso_ingresar = isset($_POST['permiso_ingresar']) ? 1 : 0;
+            $permiso_capturar = isset($_POST['permiso_capturar']) ? 1 : 0;
+            $permiso_baja = isset($_POST['permiso_baja']) ? 1 : 0;
+            $procesos = isset($_POST['procesos']) ? 1 : 0;
 
-// Procesar asignación de permisos
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['role_id'])) {
-    $role_id = $_POST['role_id'];
+            $check_query = $conn->prepare("SELECT * FROM permisos WHERE user_id = ?");
+            $check_query->bind_param("i", $user_id);
+            $check_query->execute();
+            $result = $check_query->get_result();
 
-    // Permisos seleccionados
-    $permiso_consultar = isset($_POST['permiso_consultar']) ? 1 : 0;
-    $permiso_ingresar = isset($_POST['permiso_ingresar']) ? 1 : 0;
-    $permiso_capturar = isset($_POST['permiso_capturar']) ? 1 : 0;
-    $permiso_baja = isset($_POST['permiso_baja']) ? 1 : 0;
+            if ($result->num_rows > 0) {
+                $update_query = $conn->prepare("
+                    UPDATE permisos 
+                    SET permiso_consultar = ?, permiso_ingresar = ?, permiso_capturar = ?, permiso_baja = ?, procesos = ? 
+                    WHERE user_id = ?");
+                $update_query->bind_param("iiiiii", $permiso_consultar, $permiso_ingresar, $permiso_capturar, $permiso_baja, $procesos, $user_id);
+                $update_query->execute();
+            } else {
+                $insert_query = $conn->prepare("
+                    INSERT INTO permisos (user_id, permiso_consultar, permiso_ingresar, permiso_capturar, permiso_baja, procesos) 
+                    VALUES (?, ?, ?, ?, ?, ?)");
+                $insert_query->bind_param("iiiiii", $user_id, $permiso_consultar, $permiso_ingresar, $permiso_capturar, $permiso_baja, $procesos);
+                $insert_query->execute();
+            }
+            exit();
+        }
 
-    // Verificar si el rol ya tiene permisos asignados
-    $check_query = $conn->prepare("SELECT * FROM permisos WHERE role_id = ?");
-    $check_query->bind_param("i", $role_id);
-    $check_query->execute();
-    $result = $check_query->get_result();
+        if ($_POST['action'] == "get_tabla_permisos") {
+            $users = $conn->query("SELECT id, username FROM users WHERE status='active'");
+            $tabla = "<table border='1'>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Consultar</th>
+                            <th>Ingresar</th>
+                            <th>Capturar</th>
+                            <th>Baja</th>
+                            <th>Procesos</th>
+                        </tr>";
+            while ($row = $users->fetch_assoc()) {
+                $user_id = $row['id'];
+                $perm = $conn->query("SELECT * FROM permisos WHERE user_id = $user_id")->fetch_assoc() ?? [
+                    'permiso_consultar' => 0,
+                    'permiso_ingresar' => 0,
+                    'permiso_capturar' => 0,
+                    'permiso_baja' => 0,
+                    'procesos' => 0
+                ];
 
-    if ($result->num_rows > 0) {
-        // Si existen permisos, actualizar
-        $update_query = $conn->prepare("
-            UPDATE permisos 
-            SET permiso_consultar = ?, permiso_ingresar = ?, permiso_capturar = ?, permiso_baja = ? 
-            WHERE role_id = ?");
-        $update_query->bind_param("iiiii", $permiso_consultar, $permiso_ingresar, $permiso_capturar, $permiso_baja, $role_id);
-        $update_query->execute();
-    } else {
-        // Si no existen, insertarlos
-        $insert_query = $conn->prepare("
-            INSERT INTO permisos (role_id, permiso_consultar, permiso_ingresar, permiso_capturar, permiso_baja) 
-            VALUES (?, ?, ?, ?, ?)");
-        $insert_query->bind_param("iiiii", $role_id, $permiso_consultar, $permiso_ingresar, $permiso_capturar, $permiso_baja);
-        $insert_query->execute();
+                $tabla .= "<tr>
+                    <td>{$row['username']}</td>
+                    <td>" . ($perm['permiso_consultar'] ? '✔' : '✖') . "</td>
+                    <td>" . ($perm['permiso_ingresar'] ? '✔' : '✖') . "</td>
+                    <td>" . ($perm['permiso_capturar'] ? '✔' : '✖') . "</td>
+                    <td>" . ($perm['permiso_baja'] ? '✔' : '✖') . "</td>
+                    <td>" . ($perm['procesos'] ? '✔' : '✖') . "</td>
+                </tr>";
+            }
+            $tabla .= "</table>";
+            echo $tabla;
+            exit();
+        }
     }
-}
-
-// Obtener permisos actuales para cada rol
-$permisos_actuales = [];
-$result = $conn->query("SELECT * FROM permisos");
-while ($row = $result->fetch_assoc()) {
-    $permisos_actuales[$row['role_id']] = $row;
 }
 ?>
 
@@ -69,88 +103,70 @@ while ($row = $result->fetch_assoc()) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Administrar Permisos y Roles</title>
+    <title>Administrar Permisos</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
-    <h2>Administrar Permisos y Cambio de Rol</h2>
+    <h2>Administrar Permisos por Usuario</h2>
 
-    <!-- Formulario para cambiar el rol de un usuario -->
-    <h3>Cambiar Rol de Usuario</h3>
-    <form method="POST">
+    <form id="formPermisos">
         <label>Usuario:</label>
-        <select name="user_id" required>
+        <select id="user_id" name="user_id" required>
+            <option value="">Seleccione un usuario</option>
             <?php while ($row = $users->fetch_assoc()) { ?>
-                <option value="<?= $row['id'] ?>"><?= $row['username'] ?></option>
-            <?php } ?>
-        </select>
-
-        <label>Nuevo Rol:</label>
-        <select name="role_id" required>
-            <?php
-            $roles->data_seek(0); // Reiniciar puntero de la consulta
-            while ($row = $roles->fetch_assoc()) { ?>
-                <option value="<?= $row['role_id'] ?>"><?= $row['role_name'] ?></option>
-            <?php } ?>
-        </select>
-
-        <button type="submit">Actualizar Rol</button>
-    </form>
-
-    <!-- Formulario para asignar permisos a un rol -->
-    <h3>Asignar Permisos a un Rol</h3>
-    <form method="POST">
-        <label>Rol:</label>
-        <select name="role_id" required>
-            <?php
-            $roles->data_seek(0);
-            while ($row = $roles->fetch_assoc()) { ?>
-                <option value="<?= $row['role_id'] ?>"><?= $row['role_name'] ?></option>
+                <option value="<?= $row['id'] ?>"><?= htmlspecialchars($row['username']) ?></option>
             <?php } ?>
         </select>
 
         <h3>Permisos:</h3>
-        <label>
-            <input type="checkbox" name="permiso_consultar" value="1"> Consultar
-        </label>
-        <label>
-            <input type="checkbox" name="permiso_ingresar" value="1"> Ingresar
-        </label>
-        <label>
-            <input type="checkbox" name="permiso_capturar" value="1"> Capturar
-        </label>
-        <label>
-            <input type="checkbox" name="permiso_baja" value="1"> Baja
-        </label>
+        <label><input type="checkbox" name="permiso_consultar" id="permiso_consultar"> Consultar</label>
+        <label><input type="checkbox" name="permiso_ingresar" id="permiso_ingresar"> Ingresar</label>
+        <label><input type="checkbox" name="permiso_capturar" id="permiso_capturar"> Capturar</label>
+        <label><input type="checkbox" name="permiso_baja" id="permiso_baja"> Baja</label>
+        <label><input type="checkbox" name="procesos" id="procesos"> Procesos</label>
 
         <button type="submit">Guardar Permisos</button>
     </form>
 
-    <!-- Tabla con los permisos actuales -->
-    <h2>Permisos Actuales</h2>
-    <table border="1">
-        <tr>
-            <th>Rol</th>
-            <th>Consultar</th>
-            <th>Ingresar</th>
-            <th>Capturar</th>
-            <th>Baja</th>
-        </tr>
-        <?php
-        $roles->data_seek(0);
-        while ($row = $roles->fetch_assoc()) {
-            $role_id = $row['role_id'];
-            $perm = $permisos_actuales[$role_id] ?? ['permiso_consultar' => 0, 'permiso_ingresar' => 0, 'permiso_capturar' => 0, 'permiso_baja' => 0];
-        ?>
-            <tr>
-                <td><?= $row['role_name'] ?></td>
-                <td><?= $perm['permiso_consultar'] ? '✔' : '✖' ?></td>
-                <td><?= $perm['permiso_ingresar'] ? '✔' : '✖' ?></td>
-                <td><?= $perm['permiso_capturar'] ? '✔' : '✖' ?></td>
-                <td><?= $perm['permiso_baja'] ? '✔' : '✖' ?></td>
-            </tr>
-        <?php } ?>
-    </table>
+    <h2>Permisos por Usuario</h2>
+    <div id="tablaPermisos"></div>
 
     <a href="dashboard.php">Volver</a>
+
+    <script>
+    $(document).ready(function() {
+        function cargarPermisos(user_id) {
+            $.post('', { action: "get_permisos", user_id: user_id }, function(response) {
+                let permisos = JSON.parse(response);
+                $("#permiso_consultar").prop('checked', permisos.permiso_consultar == 1);
+                $("#permiso_ingresar").prop('checked', permisos.permiso_ingresar == 1);
+                $("#permiso_capturar").prop('checked', permisos.permiso_capturar == 1);
+                $("#permiso_baja").prop('checked', permisos.permiso_baja == 1);
+                $("#procesos").prop('checked', permisos.procesos == 1);
+            });
+        }
+
+        function cargarTabla() {
+            $.post('', { action: "get_tabla_permisos" }, function(response) {
+                $("#tablaPermisos").html(response);
+            });
+        }
+
+        $("#user_id").change(function() {
+            if ($(this).val()) {
+                cargarPermisos($(this).val());
+            }
+        });
+
+        $("#formPermisos").submit(function(e) {
+            e.preventDefault();
+            $.post('', $(this).serialize() + "&action=guardar_permisos", function() {
+                cargarTabla();
+            });
+        });
+
+        cargarTabla();
+    });
+    </script>
 </body>
 </html>

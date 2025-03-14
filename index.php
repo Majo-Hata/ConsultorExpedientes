@@ -45,13 +45,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       <h2>Login</h2>
         <div class="input-field">
         <input type="text" name="email" required>
-        <label>Enter your email</label>
+        <label>Ingrese su email</label>
       </div>
       <div class="input-field">
         <input type="password" name="password" required>
-        <label>Enter your password</label>
+        <label>Ingrese su contraseña</label>
       </div>
-      <button type="submit">Log In</button>
+      <button type="submit">Iniciar sesión</button>
       <div class="register">
         <p>Si no cuenta con una cuenta, solicitala en el área de informática</p>
       </div>
@@ -59,25 +59,50 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <?php if (isset($error)) echo "<p style='color:red;'>$error</p>"; ?>
   </div>
   <script>
-        const images = [
-            'images/puebla.jpg',
-            'images/puebla2.jpg',
-            'images/puebla3.jpg',
-            'images/puebla4.jpg',
-            'images/puebla5.jpg',
-            'images/puebla6.jpg',
-            'images/puebla7.jpg'
-        ];
+    const images = [
+        'images/puebla.jpg',
+        'images/puebla2.jpg',
+        'images/puebla3.jpeg',
+        'images/puebla4.jpeg',
+        'images/puebla5.jpg',
+        'images/puebla6.jpg',
+        'images/puebla7.jpeg',
+        'images/puebla8.jpg',
+        'images/puebla9.jpg',
+        'images/puebla10.jpeg'
+    ];
 
-        let currentIndex = 0;
+    let currentIndex = 0;
 
-        function changeBackground() {
-            currentIndex = (currentIndex + 1) % images.length;
-            document.body.style.backgroundImage = `url(${images[currentIndex]})`;
-        }
+    // Crear dos capas para la transición
+    const background1 = document.createElement("div");
+    const background2 = document.createElement("div");
 
-        setInterval(changeBackground, 5000); // Cambia cada 5 segundos
-        document.body.style.backgroundImage = `url(${images[currentIndex]})`; // Inicializa con la primera imagen
-    </script>
+    background1.classList.add("background");
+    background2.classList.add("background", "background-next");
+
+    document.body.appendChild(background1);
+    document.body.appendChild(background2);
+
+    background1.style.backgroundImage = `url(${images[currentIndex]})`;
+
+    function changeBackground() {
+        currentIndex = (currentIndex + 1) % images.length;
+
+        // La segunda capa cambia la imagen y aparece lentamente
+        background2.style.backgroundImage = `url(${images[currentIndex]})`;
+        background2.style.opacity = 1;
+
+        // Después de la transición, la capa principal cambia y la secundaria desaparece
+        setTimeout(() => {
+            background1.style.backgroundImage = `url(${images[currentIndex]})`;
+            background2.style.opacity = 0;
+        }, 2000); // Duración de la transición
+    }
+
+    setInterval(changeBackground, 5000); // Cambia cada 5 segundos
+</script>
+
+
 </body>
 </html>
