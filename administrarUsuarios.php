@@ -40,21 +40,31 @@
             }
             ?>
         </select><br><br>
+        <h3>Permisos</h3>
 
-        <h2>Permisos</h2>
-        <label for="permiso_consultar">Consultar:</label>
-        <input type="checkbox" id="permiso_consultar" name="permiso_consultar" value="1"><br>
+        <label for="permiso_consultar">
+        <input type="checkbox" id="permiso_consultar" name="permiso_consultar" value="1">
+        Consultar
+        </label><br>
 
-        <label for="permiso_ingresar">Ingresar:</label>
-        <input type="checkbox" id="permiso_ingresar" name="permiso_ingresar" value="1"><br>
+        <label for="permiso_ingresar">
+        <input type="checkbox" id="permiso_ingresar" name="permiso_ingresar" value="1">
+        Ingresar
+        </label><br>
 
-        <label for="permiso_capturar">Capturar:</label>
-        <input type="checkbox" id="permiso_capturar" name="permiso_capturar" value="1"><br>
+        <label for="permiso_capturar">
+        <input type="checkbox" id="permiso_capturar" name="permiso_capturar" value="1">
+        Capturar
+        </label><br>
 
-        <label for="permiso_baja">Baja:</label>
-        <input type="checkbox" id="permiso_baja" name="permiso_baja" value="1"><br><br>
+        <label for="permiso_baja">
+        <input type="checkbox" id="permiso_baja" name="permiso_baja" value="1">
+        Baja
+        </label><br><br>
 
         <input type="submit" value="Crear Usuario">
     </form>
 </body>
 </html>
+
+

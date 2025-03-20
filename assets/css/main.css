@@ -65,7 +65,7 @@ input::-moz-focus-inner {
 	padding: 0;
 }
 
-input, select, textarea {
+input, select, textarea, datalist {
 	-moz-appearance: none;
 	-webkit-appearance: none;
 	-ms-appearance: none;
@@ -85,7 +85,7 @@ input, select, textarea {
 	body {
 		background: #fff;
 		font-family: 'Source Sans Pro', sans-serif;
-		font-size: 19pt;
+		font-size: 15pt;
 		font-weight: 300;
 		line-height: 1.75em;
 		color: #888;
@@ -102,9 +102,9 @@ input, select, textarea {
 			transition: none !important;
 		}
 
-	input, textarea, select {
+	input, textarea, select, datalist{
 		font-family: 'Source Sans Pro', sans-serif;
-		font-size: 19pt;
+		font-size: 17pt;
 		font-weight: 300;
 		line-height: 1.75em;
 		color: #888;
@@ -1845,9 +1845,9 @@ input, select, textarea {
 	form input[type="email"],
 	form input[type="password"],
 	form select,
-	form textarea {
+	form textarea, form datalist {
 		position: relative;
-		-webkit-appearance: none;
+		/* -webkit-appearance: none; */
 		display: block;
 		border: 0;
 		outline: 0;
@@ -1855,28 +1855,68 @@ input, select, textarea {
 		background: rgba(255, 255, 255, 0.75);
 		width: 100%;
 		border-radius: 0.35em;
-		padding: 0.75em 1em 0.75em 1em;
+		/* padding: 0.75em 1em 0.75em 1em; */
 		box-shadow: inset 0 0.1em 0.1em 0 rgba(0, 0, 0, 0.05);
 		border: solid 1px rgba(0, 0, 0, 0.15);
 		-moz-transition: all 0.35s ease-in-out;
 		-webkit-transition: all 0.35s ease-in-out;
 		-ms-transition: all 0.35s ease-in-out;
 		transition: all 0.35s ease-in-out;
+		/* MODIFICADO */
+		font-size: 14pt;
+		padding: 0.5em 0.8em;
 	}
 
 		form input[type="text"]:focus,
 		form input[type="email"]:focus,
 		form input[type="password"]:focus,
 		form select:focus,
-		form textarea:focus {
+		form textarea:focus, form datalist:focus {
 			box-shadow: 0 0 2px 1px #8ebebc;
 			background: #fff;
 		}
+		/* Estilos para el input asociado con el datalist */
+/* Estilos para el input asociado con el datalist */
+input[list="nuc_list"] {
+    height: 35px; /* Ajusta este valor según tus necesidades */
+    padding: 5px 10px; /* Ajusta este valor según tus necesidades */
+    font-size: 16px; /* Ajusta este valor según tus necesidades */
+    width: 100%; /* Asegura que el input ocupe todo el ancho disponible */
+    box-sizing: border-box; /* Incluye el padding y el borde en el ancho total */
+    border: 1px solid #ccc; /* Añade un borde */
+    border-radius: 4px; /* Añade bordes redondeados */
+    background-color: #fff; /* Fondo blanco */
+    color: #333; /* Color del texto */
+}
+
+/* Estilos para el datalist */
+datalist {
+    display: block; /* Asegura que el datalist se muestre */
+    max-height: 150px; /* Ajusta la altura máxima según tus necesidades */
+    overflow-y: auto; /* Añade desplazamiento vertical si es necesario */
+    border: 1px solid #ccc; /* Añade un borde */
+    border-radius: 4px; /* Añade bordes redondeados */
+    background-color: #fff; /* Fondo blanco */
+    color: #333; /* Color del texto */
+}
+
+/* Estilos para las opciones del datalist */
+datalist option {
+    padding: 5px 10px; /* Añade padding a las opciones */
+    font-size: 16px; /* Ajusta el tamaño de la fuente */
+    color: #333; /* Color del texto */
+    background-color: #fff; /* Fondo blanco */
+    border-bottom: 1px solid #ccc; /* Añade un borde inferior */
+}
+
+datalist option:hover {
+    background-color: #f0f0f0; /* Fondo gris claro al pasar el ratón */
+}
 
 	form input[type="text"],
 	form input[type="email"],
 	form input[type="password"],
-	form select {
+	form select, datalist{
 		line-height: 1.25em;
 	}
 
@@ -1909,6 +1949,9 @@ input, select, textarea {
 	table {
 		width: 100%;
 		text-align: left;
+		font-size: 16px;
+		border-collapse: collapse;
+    	margin: 10px 0;
 	}
 
 		table tbody tr:nth-child(2n+2) {
@@ -1916,14 +1959,15 @@ input, select, textarea {
 		}
 
 		table td {
-			padding: 0.5em 1em 0.5em 1em;
+			padding: 6px 10px;
 		}
 
 		table th {
 			text-align: left;
-			padding: 0.5em 1em 0.5em 1em;
+			padding: 6px 10px;
 			color: #fff;
 			background: #222729 url("images/overlay.png");
+			font-weight: bold;
 		}
 
 		table thead {
@@ -1934,7 +1978,10 @@ input, select, textarea {
 		table tfoot {
 			background: #eee;
 		}
-
+		/* Reducir el espaciado entre las líneas */
+		body, table {
+			line-height: 1.2em;
+		}
 		/* Estilo para el contenedor de la tabla */
 		#consultar .container {
 			overflow-x: auto; /* Permite el desplazamiento horizontal si la tabla es demasiado ancha */
@@ -1945,13 +1992,45 @@ input, select, textarea {
 			width: 100%; /* Asegura que la tabla ocupe el 100% del contenedor */
 			border-collapse: collapse; /* Elimina los espacios entre las celdas */
 		}
+		/* Estilo para el contenedor de la tabla */
+		.table-container {
+			max-height: 500px; /* Ajusta la altura según tus necesidades */
+			overflow-y: auto;
+			margin-top: 20px;
+			border: 1px solid #ddd;
+		}
 
+		/* Estilo para la tabla */
+		.table-container table {
+			width: 100%;
+			border-collapse: collapse;
+		}
+
+		/* Estilo para las celdas */
+		.table-container th, .table-container td {
+			padding: 8px 12px;
+			border: 1px solid #ddd;
+			text-align: left;
+		}
+
+		/* Estilo para el encabezado fijo */
+		.table-container thead th {
+			position: sticky;
+			top: 0;
+			background-color: #f2f2f2;
+			z-index: 1;
+		}
+
+		/* Estilo para las filas */
+		.table-container tbody tr:nth-child(even) {
+			background-color: #f9f9f9;
+		}
 		/* Estilo para las celdas de la tabla */
 		#consultar th, #consultar td {
 			padding: 8px; /* Añade espacio dentro de las celdas */
 			text-align: left; /* Alinea el texto a la izquierda */
 			border: 1px solid #ddd; /* Añade un borde a las celdas */
-			font-size: 14px; /* Ajusta el tamaño de la fuente */
+			font-size: 12px; /* Ajusta el tamaño de la fuente */
 		}
 
 		/* Estilo para la cabecera de la tabla */
@@ -2243,7 +2322,15 @@ input, select, textarea {
 			text-align: center;
 			background-image: url("images/overlay.png");
 		}
-
+/* MODIFICADO */
+			/* Ajustar la visibilidad de las tablas en la primera sección con imagen de fondo */
+			#main > section.one table tbody tr:nth-child(2n+2) {
+				background: #d9d9d9; /* Un gris más oscuro */
+			} 
+/* MODIFICAO */
+			#main > section.one table td {
+				color: #000; /* Letras negras para mejor contraste */
+			}
 			#main > section.dark {
 				color: #ddd;
 				color: rgba(255, 255, 255, 0.75);
@@ -2296,7 +2383,7 @@ input, select, textarea {
 
 		/* Basic */
 
-			body, input, textarea, select {
+			body, input, textarea, select, datalist {
 				font-size: d;
 			}
 
@@ -2342,8 +2429,8 @@ input, select, textarea {
 
 		/* Basic */
 
-			body, input, textarea, select {
-				font-size: 16pt;
+			body, input, textarea, select, datalist {
+				font-size: 14pt;
 			}
 
 			.container {
@@ -2417,8 +2504,8 @@ input, select, textarea {
 				overflow-x: hidden;
 			}
 
-			body, input, textarea, select {
-				font-size: 16pt;
+			body, input, textarea, select, datalist{
+				font-size: 14pt;
 			}
 
 			header br {
@@ -2537,7 +2624,7 @@ input, select, textarea {
 						text-decoration: none;
 						content: '\f0c9';
 						color: #fff;
-						font-size: 18px;
+						font-size: 16px;
 						background: rgba(128, 136, 144, 0.5);
 						border-radius: 0.35em;
 						text-align: center;
@@ -2608,8 +2695,8 @@ input, select, textarea {
 
 		/* Basic */
 
-			body, input, textarea, select {
-				font-size: 14pt;
+			body, input, textarea, select, datalist {
+				font-size: 12pt;
 			}
 
 			h2 {
@@ -2655,7 +2742,7 @@ input, select, textarea {
 
 			#footer .copyright li:first-child {
 				margin-top: 0;
-			}}
+			}
 
 			input[type="checkbox"] {
 				appearance: auto; /* Restaura el estilo predeterminado */
@@ -2670,4 +2757,4 @@ input, select, textarea {
   				visibility: visible !important;
 			  }
 			  
-			  
+			}

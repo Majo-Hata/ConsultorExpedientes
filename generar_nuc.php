@@ -1,19 +1,25 @@
 <?php
+// generar_nuc.php
 session_start();
 include 'config.php';
 
-if (!isset($_SESSION['curp_validado']) || !isset($_SESSION['pre_registro_id']) || !isset($_SESSION['nuc_sim'])) {
+// Verificar que las variables de sesión existan
+if (
+    !isset($_SESSION['curp_validado']) || 
+    !isset($_SESSION['pre_registro_id']) || 
+    !isset($_SESSION['nuc_sim']) ||
+    !isset($_SESSION['municipio_id'])
+) {
     die("ERROR: No se encontró un CURP, municipio o NUC asociado.");
 }
 
-$curp = $_SESSION['curp_validado'];
-$municipio_id = $_SESSION['municipio_id'];
+$curp          = $_SESSION['curp_validado'];
+$municipio_id  = $_SESSION['municipio_id'];
 $pre_registro_id = $_SESSION['pre_registro_id'];
-$nuc_sim = $_SESSION['nuc_sim']; 
+$nuc_sim       = $_SESSION['nuc_sim'];
 
-// Obtener clave del municipio
-$query_municipio = "SELECT clave_municipio FROM municipios WHERE municipio_id = ?";
-$stmt_municipio = $conn->prepare($query_municipio);
+// Obtener la clave del municipio
+$stmt_municipio = $conn->prepare("SELECT clave_municipio FROM municipios WHERE municipio_id = ?");
 $stmt_municipio->bind_param("i", $municipio_id);
 $stmt_municipio->execute();
 $stmt_municipio->bind_result($clave_municipio);
@@ -39,50 +45,24 @@ $anio = date("y");
 // Generar NUC
 $nuc_generado = $clave_municipio . $numero_incremental . $anio;
 
-// Imprimir valores antes de insertar
-echo "Pre-registro ID: " . htmlspecialchars($pre_registro_id) . "<br>";
-echo "Número incremental: " . htmlspecialchars($numero_incremental) . "<br>";
-echo "NUC generado: " . htmlspecialchars($nuc_generado) . "<br>";
-
-// Insertar en `crear_numero`
-$stmt_insert_nuc = $conn->prepare("
-    INSERT INTO crear_numero (pre_registro_id, numero_incremental, nuc) 
-    VALUES (?, ?, ?)
-");
+// Insertar en la tabla crear_numero
+$stmt_insert_nuc = $conn->prepare("INSERT INTO crear_numero (pre_registro_id, numero_incremental, nuc) VALUES (?, ?, ?)");
 if (!$stmt_insert_nuc) {
     die("Error en la preparación de la consulta: " . $conn->error);
 }
-
 $stmt_insert_nuc->bind_param("iis", $pre_registro_id, $row_incremental['nuevo_incremental'], $nuc_generado);
 
 if (!$stmt_insert_nuc->execute()) {
     die("Error al insertar NUC: " . $stmt_insert_nuc->error);
-} else {
-    echo "NUC insertado correctamente: <strong>$nuc_generado</strong><br>";
 }
-
 $stmt_insert_nuc->close();
 
-// Guardar datos en sesión para prellenar en capturar.php
+// Guardar NUC en sesión para la siguiente página
 $_SESSION['nuc'] = $nuc_generado;
-$_SESSION['nuc_sim'] = $nuc_sim;
-$_SESSION['municipio'] = $clave_municipio;
-$_SESSION['curp_validado'] = $curp;
 
-// Redirigir a la página de captura
-header("Location: capturar.php");
+// Forzar escritura de sesión antes de redirigir
+session_write_close();
+
+header("Location: capturarExpediente.php");
 exit();
-
 ?>
-
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Generar NUC</title>
-</head>
-<body>
-    <h2>Generar NUC</h2>
-    <p>NUC generado: <strong><?php echo htmlspecialchars($nuc_generado); ?></strong></p>
-    <a href="dashboard.php">Volver al Dashboard</a>
-</body>
-</html>
