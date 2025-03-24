@@ -1,65 +1,59 @@
 <?php
-// capturarExpediente.php
 session_start();
 include 'config.php';
 
-// Verificar que el usuario esté logueado
 if (!isset($_SESSION['user_id'])) { 
     header("Location: index.php"); 
     exit(); 
 }
-
-// Recuperar datos de sesión usando nombres consistentes
+// Obtener municipio desde sesión
 $municipio_nombre = isset($_SESSION['municipio_nombre']) ? $_SESSION['municipio_nombre'] : '';
-$nuc_generado    = isset($_SESSION['nuc']) ? $_SESSION['nuc'] : '';
-$curp            = isset($_SESSION['curp_validado']) ? $_SESSION['curp_validado'] : '';
-$tipo_predio     = isset($_SESSION['tipo_predio']) ? $_SESSION['tipo_predio'] : '';
 
-// Opcional: puedes hacer un debug temporal de la sesión
-// echo "<pre>";
-// print_r($_SESSION);
-// echo "</pre>";
+// Obtener el nuc_sim desde la sesión
+$nuc_sim = isset($_SESSION['nuc_sim']) ? $_SESSION['nuc_sim'] : '';
+$nuc_generado = isset($_SESSION['nuc_generado']) ? $_SESSION['nuc_generado'] : '';
 
+// Generar NUC: Obtener el último NUC para continuar con el siguiente
+$query = "SELECT nuc FROM ingresos ORDER BY nuc DESC LIMIT 1";
+$result = $conn->query($query);
+$nuc = 1; // Valor por defecto
+if ($result && $row = $result->fetch_assoc()) {
+    $nuc = $row['nuc'] + 1;  // Incrementar NUC
+}
+
+// Si el formulario se ha enviado
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Recoger datos del formulario
-    $fecha = $_POST['fecha'] ?? null;
-    $nuc = $_POST['nuc'] ?? null;
-    $nuc_sim = $_POST['nuc_sim'] ?? null;
-    $municipio = $_POST['municipio'] ?? null;
-    $localidad = $_POST['localidad'] ?? null;
-    $promovente = $_POST['promovente'] ?? null;
-    $referencia_pago = $_POST['referencia_pago'] ?? null;
-    $tipo_predio_form = $_POST['tipo_predio'] ?? null;
-    $tipo_tramite = $_POST['tipo_tramite'] ?? null;
-    $direccion = $_POST['direccion'] ?? null;
-    $denominacion = $_POST['denominacion'] ?? null;
-    $superficie_total = $_POST['superficie_total'] ?? null;
-    $sup_has = $_POST['sup_has'] ?? null;
-    $superficie_construida = $_POST['superficie_construida'] ?? null;
-    $forma_valorada = $_POST['forma_valorada'] ?? null;
-    $procedente = $_POST['procedente'] ?? null;
+    $fecha = $_POST['fecha'];
+    $nuc = $_POST['nuc'];
+    $nuc_sim = $_POST['nuc_sim'];
+    $municipio = $_POST['municipio'];
+    $localidad = $_POST['localidad'];
+    $promovente = $_POST['promovente'];
+    $referencia_pago = $_POST['referencia_pago'];
+    $tipo_predio = $_POST['tipo_predio'];
+    $tipo_tramite = $_POST['tipo_tramite'];
+    $direccion = $_POST['direccion'];
+    $denominacion = $_POST['denominacion'];
+    $superficie_total = $_POST['superficie_total'];
+    $sup_has = $_POST['sup_has'];
+    $superficie_construida = $_POST['superficie_construida'];
+    $forma_valorada = $_POST['forma_valorada'];
+    $procedente = $_POST['procedente'];
     $estado = 1;
 
-    // Validar que los campos obligatorios no estén vacíos
-    if (
-        $fecha && $nuc && $nuc_sim && $municipio && $localidad && $promovente &&
-        $referencia_pago && $tipo_predio_form && $tipo_tramite && $direccion &&
-        $denominacion && $superficie_total && $sup_has && $superficie_construida &&
-        $forma_valorada && $procedente !== null
-    ) {
-        $stmt = $conn->prepare("INSERT INTO ingresos (fecha, nuc, nuc_sim, municipio, localidad, promovente, referencia_pago, tipo_predio, tipo_tramite, direccion, denominacion, superficie_total, sup_has, superficie_construida, forma_valorada, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("ssssssssssssssss", $fecha, $nuc, $nuc_sim, $municipio, $localidad, $promovente, $referencia_pago, $tipo_predio_form, $tipo_tramite, $direccion, $denominacion, $superficie_total, $sup_has, $superficie_construida, $forma_valorada, $estado);
-    
-        if ($stmt->execute()) {
-            echo "<script>alert('Registro guardado correctamente'); window.location.href='dashboard.php#validacion';</script>";
-        } else {
-            echo "<script>alert('Error al guardar los datos');</script>";
-        }
-        $stmt->close();
+    // Insertar en la base de datos
+    $stmt = $conn->prepare("INSERT INTO ingresos (fecha, nuc, nuc_sim, municipio, localidad, promovente, referencia_pago, tipo_predio, tipo_tramite, direccion, denominacion, superficie_total, sup_has, superficie_construida, forma_valorada, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssssssssssssss", $fecha, $nuc, $nuc_sim, $municipio, $localidad, $promovente, $referencia_pago, $tipo_predio, $tipo_tramite, $direccion, $denominacion, $superficie_total, $sup_has, $superficie_construida, $forma_valorada, $estado);
+
+    if ($stmt->execute()) {
+        echo "<script>alert('Registro guardado correctamente'); window.location.href='capturar.php';</script>";
     } else {
-        echo "<script>alert('Todos los campos son obligatorios');</script>";
+        echo "<script>alert('Error al guardar los datos'); window.location.href='capturar.php';</script>";
     }
+
+    $stmt->close();
     $conn->close();
+    exit();
 }
 ?>
 <!DOCTYPE HTML>
@@ -141,7 +135,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <input type="text" id="referencia_pago" name="referencia_pago" required><br><br>
 
                     <label for="tipo_predio">Tipo de Predio:</label>
-                    <input type="text" id="tipo_predio" name="tipo_predio" value="<?php echo htmlspecialchars($tipo_predio); ?>" readonly><br><br>
+                    <input type="text" id="tipo_predio" name="tipo_predio" value="<?php echo htmlspecialchars($_SESSION['tipo_predio']); ?>" readonly><br><br>
 
                     <label for="tipo_tramite">Tipo de Trámite:</label>
                     <input type="text" id="tipo_tramite" name="tipo_tramite" required><br><br>

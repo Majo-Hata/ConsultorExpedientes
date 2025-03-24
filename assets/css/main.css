@@ -2744,17 +2744,17 @@ datalist option:hover {
 				margin-top: 0;
 			}
 
+			/* Estilos para los checkboxes */
 			input[type="checkbox"] {
-				appearance: auto; /* Restaura el estilo predeterminado */
-				-webkit-appearance: auto;
-				-moz-appearance: auto;
+				display: inline-block !important; /* Fuerza su visibilidad */
 				width: 20px;
 				height: 20px;
-				cursor: pointer;
-				position: relative;
-				z-index: 9999;
-				opacity: 1 !important;
-  				visibility: visible !important;
-			  }
+				margin-right: 10px;
+				opacity: 1 !important; /* Asegura que no estén transparentes */
+				visibility: visible !important; /* Asegura que no estén ocultos */
+			}
+			
+		
+			
 			  
 			}

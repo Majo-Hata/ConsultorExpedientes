@@ -103,6 +103,7 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
 		<link rel="stylesheet" href="assets/css/main.css" />
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         
 	</head>
 	<body class="is-preload">
@@ -119,6 +120,7 @@
                 <!-- Nav -->
                 <nav id="nav">
                     <ul>
+                    <li><a href="dashboard.php" id="link"><span class="icon solid fa-home">Inicio</span></a></li>
                         <?php if ($area_id == NULL): // Super Administrador ?>
                             <li><a href="#usuarios" id="usuarios-link"><span class="icon solid fa-home">Gestión de Usuarios</span></a></li>
                             <li><a href="#areas" id="areas-link"><span class="icon solid fa-th">Gestión de Áreas</span></a></li>
@@ -173,7 +175,7 @@
         <div id="main">
             <!-- Introducción -->
             <?php if ($area_id != NULL):?>
-            <section id="top" class="one dark cover">
+            <section class="one dark cover">
                 <div class="container">
                     <header>
                         <h3>NUCs en tu área</h3>
@@ -199,62 +201,102 @@
             <?php endif; ?>
             <!-- Gestion de historial de movimientos -->
             <?php if ($area_id == NULL): ?>
-            <section id="historial" class="one dark cover">
+                <section class="one dark cover">
                 <div class="container">
                     <header>
                         <h2>Historial de procesos</h2>
                     </header>
                     <?php
-                        // Obtener historial de movimientos
+                        // Inicializar la variable $search_nuc
                         $search_nuc = isset($_POST['search_nuc']) ? trim($_POST['search_nuc']) : '';
                         
                         if ($search_nuc) {
-                            $query = "SELECT h.id, h.nuc_id, h.area_origen, h.area_destino, h.comentario, h.fecha_movimiento, u.full_name 
+                            $query = "SELECT h.id, h.nuc_id, i.nuc, h.area_origen, h.area_destino, h.comentario, h.fecha_movimiento, u.full_name 
                                         FROM historiales h
                                         JOIN users u ON h.usuario_id = u.id
-                                        WHERE h.nuc_id = ?
+                                        JOIN ingresos i ON h.nuc_id = i.id_nuc
+                                        WHERE i.nuc = ?
                                         ORDER BY h.fecha_movimiento DESC";
                             $stmt = $conn->prepare($query);
                             $stmt->bind_param("s", $search_nuc);
                             $stmt->execute();
                             $result = $stmt->get_result();
                         } else {
-                            $query = "SELECT h.id, h.nuc_id, h.area_origen, h.area_destino, h.comentario, h.fecha_movimiento, u.full_name 
+                            $query = "SELECT h.id, h.nuc_id, i.nuc, h.area_origen, h.area_destino, h.comentario, h.fecha_movimiento, u.full_name 
                                         FROM historiales h
                                         JOIN users u ON h.usuario_id = u.id
+                                        JOIN ingresos i ON h.nuc_id = i.id_nuc
                                         ORDER BY h.fecha_movimiento DESC
                                         LIMIT 10";
                             $result = $conn->query($query);
                         }
                     ?>
-                    <form method="POST" action="historial.php">
+                    <form id="search_form" method="POST" action="">
                         <label for="search_nuc">Buscar por NUC:</label>
                         <input type="text" id="search_nuc" name="search_nuc" value="<?php echo htmlspecialchars($search_nuc); ?>">
                         <button type="submit">Buscar</button>
-                        <button type="button" onclick="window.location.href='historial.php'">Borrar consulta</button>
+                        <button type="button" id="clear_search">Borrar consulta</button>
                     </form>
-                    <table>
-                        <tr>
-                            <th>NUC</th>
-                            <th>Área Origen</th>
-                            <th>Área Destino</th>
-                            <th>Comentario</th>
-                            <th>Fecha</th>
-                            <th>Usuario</th>
-                        </tr>
-                        <?php while ($row = $result->fetch_assoc()): ?>
+                    <div id="historial_table">
+                        <table>
                             <tr>
-                                <td><?php echo htmlspecialchars($row['nuc_id']); ?></td>
-                                <td><?php echo htmlspecialchars($row['area_origen']); ?></td>
-                                <td><?php echo htmlspecialchars($row['area_destino']); ?></td>
-                                <td><?php echo htmlspecialchars($row['comentario']); ?></td>
-                                <td><?php echo htmlspecialchars($row['fecha_movimiento']); ?></td>
-                                <td><?php echo htmlspecialchars($row['full_name']); ?></td>
+                                <th>NUC</th>
+                                <th>Área Origen</th>
+                                <th>Área Destino</th>
+                                <th>Comentario</th>
+                                <th>Fecha</th>
+                                <th>Usuario</th>
                             </tr>
-                        <?php endwhile; ?>
-                    </table>
+                            <?php if ($result && $result->num_rows > 0): ?>
+                                <?php while ($row = $result->fetch_assoc()): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($row['nuc']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['area_origen']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['area_destino']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['comentario']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['fecha_movimiento']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['full_name']); ?></td>
+                                    </tr>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="6">No se encontraron registros</td>
+                                </tr>
+                            <?php endif; ?>
+                        </table>
+                    </div>
                 </div>
             </section>
+
+            <script>
+            document.getElementById('search_form').addEventListener('submit', function(event) {
+                event.preventDefault(); // Evitar el envío del formulario
+
+                var search_nuc = document.getElementById('search_nuc').value;
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', 'actualizar_historial.php', true);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4 && xhr.status === 200) {
+                        document.getElementById('historial_table').innerHTML = xhr.responseText;
+                    }
+                };
+                xhr.send('search_nuc=' + encodeURIComponent(search_nuc));
+            });
+
+            document.getElementById('clear_search').addEventListener('click', function() {
+                document.getElementById('search_nuc').value = '';
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', 'actualizar_historial.php', true);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4 && xhr.status === 200) {
+                        document.getElementById('historial_table').innerHTML = xhr.responseText;
+                    }
+                };
+                xhr.send();
+            });
+            </script>
             <!-- Gestion de usuarios -->
             <section id="usuarios" class="two">
                 <div class="container">
@@ -408,10 +450,9 @@
                             ?>
                         </select><br><br>
                         <h3>Permisos</h3>
-
                         <label for="permiso_consultar">
-                        <input type="checkbox" id="permiso_consultar" name="permiso_consultar" value="1">
-                        Consultar
+                            <input type="checkbox" id="permiso_consultar" name="permiso_consultar" value="1">
+                            Consultar
                         </label><br>
 
                         <label for="permiso_ingresar">
@@ -427,7 +468,11 @@
                         <label for="permiso_baja">
                         <input type="checkbox" id="permiso_baja" name="permiso_baja" value="1">
                         Baja
-                        </label><br><br>
+                        </label><br>
+                        <label for="procesos">
+                            <input type="checkbox" id= "procesos" name="procesos" value="!">
+                            Procesos
+                        </label> <br><br>
 
                         <input type="submit" value="Crear Usuario">
                     </form>
@@ -458,13 +503,20 @@
             </section>
             <!-- Seccion de permisos -->
             <?php
-                // Obtener usuarios activos y almacenarlos en un array
-                $usersArray = [];
-                $result = $conn->query("SELECT id, username FROM users WHERE status='active'");
-                while ($row = $result->fetch_assoc()) {
-                    $usersArray[] = $row;
-                }
-                
+                // Obtener permisos de todos los usuarios activos
+                $permisosUsuarios = $conn->query("
+                    SELECT u.id, u.username, 
+                        COALESCE(p.permiso_consultar, 0) AS permiso_consultar, 
+                        COALESCE(p.permiso_ingresar, 0) AS permiso_ingresar, 
+                        COALESCE(p.permiso_capturar, 0) AS permiso_capturar, 
+                        COALESCE(p.permiso_baja, 0) AS permiso_baja, 
+                        COALESCE(p.procesos, 0) AS procesos
+                    FROM users u
+                    LEFT JOIN permisos p ON u.id = p.user_id
+                    WHERE u.status = 'active'
+                    ORDER BY u.username ASC
+                ");
+
                 // Obtener roles disponibles
                 $roles = $conn->query("SELECT role_id, role_name FROM roles");
                 
@@ -513,17 +565,6 @@
                         exit();
                     }
                 }
-                // Obtener usuarios activos y almacenarlos en un array
-                $usersArray = [];
-                $result = $conn->query("SELECT id, username FROM users WHERE status='active'");
-                while ($row = $result->fetch_assoc()) {
-                    $usersArray[] = $row;
-                }
-
-                // Obtener permisos de todos los usuarios
-                $permisosUsuarios = $conn->query("SELECT p.user_id, u.username, p.permiso_consultar, p.permiso_ingresar, p.permiso_capturar, p.permiso_baja, p.procesos 
-                                                FROM permisos p
-                                                JOIN users u ON p.user_id = u.id");
             ?>
             <section id="asignarPermisos" class="two">
                 <div class="container">
@@ -542,11 +583,30 @@
                         </select>
 
                         <h3>Permisos:</h3>
-                        <label><input type="checkbox" name="permiso_consultar" id="permiso_consultar"> Consultar</label>
-                        <label><input type="checkbox" name="permiso_ingresar" id="permiso_ingresar"> Ingresar</label>
-                        <label><input type="checkbox" name="permiso_capturar" id="permiso_capturar"> Capturar</label>
-                        <label><input type="checkbox" name="permiso_baja" id="permiso_baja"> Baja</label>
-                        <label><input type="checkbox" name="procesos" id="procesos"> Procesos</label>
+                        <label for="permiso_consultar">
+                            <input type="checkbox" id="permiso_consultar2" name="permiso_consultar" value="1">
+                            Consultar
+                        </label><br>
+
+                        <label for="permiso_ingresar">
+                        <input type="checkbox" id="permiso_ingresar2" name="permiso_ingresar" value="1">
+                        Ingresar
+                        </label><br>
+
+                        <label for="permiso_capturar">
+                        <input type="checkbox" id="permiso_capturar2" name="permiso_capturar" value="1">
+                        Capturar
+                        </label><br>
+
+                        <label for="permiso_baja">
+                        <input type="checkbox" id="permiso_baja2" name="permiso_baja" value="1">
+                        Baja
+                        </label><br>
+
+                        <label for="procesos">
+                            <input type="checkbox" id= "procesos2" name="procesos" value="!">
+                            Procesos
+                        </label> <br><br>
 
                         <button type="submit">Guardar Permisos</button>
                     </form>
@@ -750,97 +810,180 @@
             <?php endif; ?>
             <!-- Seccion de asignar movimiento -->
             <?php if ($permisos['procesos']): ?>
-            <?php
-                if ($_SERVER["REQUEST_METHOD"] == "POST") {
-                    $nuc_id = isset($_POST['nuc_id']) ? intval($_POST['nuc_id']) : null;
-                    $area_origen = isset($_POST['area_origen']) ? trim($_POST['area_origen']) : null;
-                    $area_destino = isset($_POST['area_destino']) ? trim($_POST['area_destino']) : null;
-                    $comentario = isset($_POST['comentario']) ? trim($_POST['comentario']) : null;
-                    $fecha_movimiento = isset($_POST['fecha_movimiento']) ? $_POST['fecha_movimiento'] : null;
-                    $usuario_id = $_SESSION['user_id']; // Usuario autenticado
-                
-                    if ($nuc_id && $area_origen && $area_destino && $comentario) {
-                        if (empty($fecha_movimiento)) {
-                            $stmt = $conn->prepare("INSERT INTO historiales (nuc_id, area_origen, area_destino, comentario, usuario_id) VALUES (?, ?, ?, ?, ?)");
-                            $stmt->bind_param("isssi", $nuc_id, $area_origen, $area_destino, $comentario, $usuario_id);
-                        } else {
-                            $stmt = $conn->prepare("INSERT INTO historiales (nuc_id, area_origen, area_destino, comentario, fecha_movimiento, usuario_id) VALUES (?, ?, ?, ?, ?, ?)");
-                            $stmt->bind_param("issssi", $nuc_id, $area_origen, $area_destino, $comentario, $fecha_movimiento, $usuario_id);
-                        }
-                
-                        if ($stmt->execute()) {
-                            echo "Movimiento registrado correctamente.";
-                        } else {
-                            echo "Error al registrar el movimiento: " . $conn->error;
-                        }
-                    }
-                }
+                <?php
 
-                // Obtener NUCs disponibles
-                $nucs = $conn->query("SELECT id_nuc, nuc FROM ingresos");
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $nuc_id = isset($_POST['nuc_id']) ? intval($_POST['nuc_id']) : null;
+    $area_origen = isset($_POST['area_origen']) ? trim($_POST['area_origen']) : null;
+    $area_destino = isset($_POST['area_destino']) ? trim($_POST['area_destino']) : null;
+    $comentario = isset($_POST['comentario']) ? trim($_POST['comentario']) : null;
+    $fecha_movimiento = !empty($_POST['fecha_movimiento']) ? $_POST['fecha_movimiento'] : null;
+    $usuario_id = $_SESSION['user_id']; // Usuario autenticado
 
-                // Obtener áreas disponibles (guardarlas en un array para reutilizarlo)
-                $areas_result = $conn->query("SELECT nombre_area FROM areas");
-                $areas = [];
-                while ($row = $areas_result->fetch_assoc()) {
-                    $areas[] = $row['nombre_area'];
-                }
-                ?>
-            <section id="asignarMovimiento" class="four">
-                <div class="container">
-                    <header>
-                        <h2>Asignar tarea a expedientes</h2>
-                    </header>
-                    <form method="POST">
-                        <label>NUC:</label>
-                        <input list="nuc_list" id="nuc_input" name="nuc_id" placeholder="Ingrese NUC" required>
-                        <datalist id="nuc_list">
-                            <?php while ($row = $nucs->fetch_assoc()): ?>
-                                <option value="<?php echo $row['nuc']; ?>" data-id="<?php echo $row['id_nuc']; ?>"></option>
-                            <?php endwhile; ?>
-                        </datalist>
+    if (!empty($nuc_id) && !empty($area_origen) && !empty($area_destino) && !empty($comentario)) {
+        // Preparar la consulta
+        if (is_null($fecha_movimiento)) {
+            $stmt = $conn->prepare("INSERT INTO historiales (nuc_id, area_origen, area_destino, comentario, usuario_id) 
+                                    VALUES (?, ?, ?, ?, ?)");
+            $stmt->bind_param("isssi", $nuc_id, $area_origen, $area_destino, $comentario, $usuario_id);
+        } else {
+            $stmt = $conn->prepare("INSERT INTO historiales (nuc_id, area_origen, area_destino, comentario, fecha_movimiento, usuario_id) 
+                                    VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("issssi", $nuc_id, $area_origen, $area_destino, $comentario, $fecha_movimiento, $usuario_id);
+        }
 
-                        <script>
-                        document.getElementById('nuc_input').addEventListener('input', function() {
-                            var input = this.value.toUpperCase();
-                            var datalist = document.getElementById('nuc_list');
-                            var options = datalist.getElementsByTagName('option');
+        if ($stmt->execute()) {
+            echo "<p style='color: green;'>Movimiento registrado correctamente.</p>";
+        } else {
+            echo "<p style='color: red;'>Error al registrar el movimiento: " . $stmt->error . "</p>";
+        }
+    } else {
+        echo "<p style='color: red;'>Todos los campos son obligatorios.</p>";
+    }
+}
 
-                            for (var i = 0; i < options.length; i++) {
-                                var txtValue = options[i].value;
-                                if (txtValue.toUpperCase().indexOf(input) > -1) {
-                                    options[i].style.display = "";
-                                } else {
-                                    options[i].style.display = "none";
-                                }
-                            }
-                        });
-                        </script>
+// Obtener áreas disponibles
+$areas_result = $conn->query("SELECT nombre_area FROM areas");
+$areas = [];
+while ($row = $areas_result->fetch_assoc()) {
+    $areas[] = $row['nombre_area'];
+}
 
-                        <label>Área Origen:</label>
-                        <select name="area_origen" required>
-                            <?php foreach ($areas as $area): ?>
-                                <option value="<?php echo $area; ?>"><?php echo $area; ?></option>
-                            <?php endforeach; ?>
-                        </select>
+// Obtener NUCs disponibles
+$nucs = $conn->query("SELECT id_nuc, nuc FROM ingresos");
+$nuc_list = [];
+while ($row = $nucs->fetch_assoc()) {
+    $nuc_list[] = ['id' => $row['id_nuc'], 'nuc' => $row['nuc']];
+}
+?>
 
-                        <label>Área Destino:</label>
-                        <select name="area_destino" required>
-                            <?php foreach ($areas as $area): ?>
-                                <option value="<?php echo $area; ?>"><?php echo $area; ?></option>
-                            <?php endforeach; ?>
-                        </select>
+<section id="asignarMovimiento" class="four">
+    <div class="container">
+        <header>
+            <h2>Asignar tarea a expedientes</h2>
+        </header>
+        <form method="POST">
+            <label>NUC:</label>
+            <input type="text" id="nuc_input" name="nuc_text" placeholder="Ingrese NUC" required>
+            <input type="hidden" id="nuc_id" name="nuc_id">
+            <ul id="nuc_suggestions" class="suggestions"></ul>
 
-                        <label>Comentario:</label>
-                        <input type="text" name="comentario" required>
+            <label>Área Origen:</label>
+            <select name="area_origen" required>
+                <?php foreach ($areas as $area): ?>
+                    <option value="<?php echo $area; ?>"><?php echo $area; ?></option>
+                <?php endforeach; ?>
+            </select>
 
-                        <label>Fecha Movimiento:</label>
-                        <input type="datetime-local" name="fecha_movimiento">
+            <label>Área Destino:</label>
+            <select name="area_destino" required>
+                <?php foreach ($areas as $area): ?>
+                    <option value="<?php echo $area; ?>"><?php echo $area; ?></option>
+                <?php endforeach; ?>
+            </select>
 
-                        <button type="submit">Registrar Movimiento</button>
-                    </form>
-                </div>
-            </section>
+            <label>Comentario:</label>
+            <input type="text" name="comentario" required>
+
+            <label>Fecha Movimiento:</label>
+            <input type="datetime-local" name="fecha_movimiento">
+
+            <button type="submit">Registrar Movimiento</button>
+        </form>
+    </div>
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const nucInput = document.getElementById("nuc_input");
+    const nucIdInput = document.getElementById("nuc_id");
+    const suggestionList = document.getElementById("nuc_suggestions");
+    const historialBody = document.getElementById("historial_body");
+
+    const nucs = <?php echo json_encode($nuc_list); ?>;
+
+    function fetchHistorial(nucId = null) {
+        fetch("actualizar_historial.php?nuc_id=" + (nucId || ""))
+            .then(response => response.text())
+            .then(data => {
+                historialBody.innerHTML = data;
+            });
+    }
+
+    nucInput.addEventListener("input", function () {
+        const search = this.value.toLowerCase();
+        suggestionList.innerHTML = "";
+
+        if (search.length === 0) {
+            suggestionList.style.display = "none";
+            fetchHistorial(); // Si se borra el campo, se cargan los últimos 10 movimientos
+            return;
+        }
+
+        const filteredNucs = nucs.filter(nuc => nuc.nuc.toLowerCase().includes(search));
+
+        if (filteredNucs.length === 0) {
+            suggestionList.style.display = "none";
+            return;
+        }
+
+        filteredNucs.forEach(nuc => {
+            const li = document.createElement("li");
+            li.textContent = nuc.nuc;
+            li.dataset.id = nuc.id;
+            li.onclick = function () {
+                nucInput.value = nuc.nuc;
+                nucIdInput.value = nuc.id;
+                suggestionList.innerHTML = "";
+                suggestionList.style.display = "none";
+                fetchHistorial(nuc.id); // Filtrar historial por el NUC seleccionado
+            };
+            suggestionList.appendChild(li);
+        });
+
+        suggestionList.style.display = "block";
+    });
+
+    document.addEventListener("click", function (e) {
+        if (!nucInput.contains(e.target) && !suggestionList.contains(e.target)) {
+            suggestionList.style.display = "none";
+        }
+    });
+
+    fetchHistorial(); // Cargar los últimos 10 movimientos al cargar la página
+});
+
+</script>
+
+<style>
+.suggestions {
+    position: absolute;
+    background: white;
+    border: 1px solid #ccc;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    width: 200px;
+    max-height: 150px;
+    overflow-y: auto;
+    display: none;
+    z-index: 1000; /* Asegura que esté por encima del formulario */
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Sombra para resaltar */
+}
+
+.suggestions li {
+    padding: 8px;
+    cursor: pointer;
+    background: white;
+}
+
+.suggestions li:hover {
+    background: #ddd;
+}
+
+</style>
+
+
             <?php endif; ?>
             <!-- Seccion de pre-registro -->
             <?php if ($permisos['ingresar']): ?>
@@ -849,13 +992,13 @@
 
                 // Obtener lista de municipios
                 $municipios = $conn->query("SELECT municipio_id, nombre FROM municipios ORDER BY nombre ASC");
-
+                
                 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-                    $curp = isset($_POST['curp']) ? trim($_POST['curp']) : '';
+                    $curp = isset($_POST['curp']) ? trim($_POST['curp']) : "";
                     $municipio_id = isset($_POST['municipio_id']) ? intval($_POST['municipio_id']) : 0;
-                    $tipo_predio = isset($_POST['tipo_predio']) ? $_POST['tipo_predio'] : '';
-                    $superficie_total = ($tipo_predio === "RURAL" && isset($_POST['superficie_total'])) ? floatval($_POST['superficie_total']) : 0;
-                    $nuc_sim = isset($_POST['nuc_sim']) ? trim($_POST['nuc_sim']) : '';
+                    $tipo_predio = isset($_POST['tipo_predio']) ? $_POST['tipo_predio'] : "";
+                    $superficie_total = ($tipo_predio === "rural" && isset($_POST['superficie_total'])) ? floatval($_POST['superficie_total']) : 0;
+                    $nuc_sim = isset($_POST['nuc_sim']) ? trim($_POST['nuc_sim']) : "";
                 
                     // Obtener nombre del municipio
                     $stmt_mun = $conn->prepare("SELECT nombre FROM municipios WHERE municipio_id = ?");
@@ -884,18 +1027,18 @@
                         $total_superficie_rural = 0;
                 
                         while ($row = $result_validacion->fetch_assoc()) {
-                            if (strcasecmp($row['tipo_predio'], 'URBANO') == 0) {
+                            if (strcasecmp($row['tipo_predio'], 'urbano') == 0) {
                                 $total_urbanos = $row['total_predios'];
                             }
-                            if (strcasecmp($row['tipo_predio'], 'RURAL') == 0) {
+                            if (strcasecmp($row['tipo_predio'], 'rural') == 0) {
                                 $total_superficie_rural = $row['total_superficie'];
                             }
                         }
                         $stmt_validacion->close();
                 
                         // Verificación de reglas
-                        if (($tipo_predio === "URBANO" && $total_urbanos >= 1) || 
-                            ($tipo_predio === "RURAL" && ($total_superficie_rural + $superficie_total) > 6)) {
+                        if (($tipo_predio === "urbano" && $total_urbanos >= 1) || 
+                            ($tipo_predio === "rural" && ($total_superficie_rural + $superficie_total) > 6)) {
                             $permitido = false;
                         }
                 
@@ -945,21 +1088,15 @@
                                 }
                                 $stmt_insert_pre_registro->close();
                             }
-                            var_dump($curp, $municipio_id, $pre_registro_id, $nuc_sim);
-
+                
                             $_SESSION['curp_validado'] = $curp;
                             $_SESSION['municipio_id'] = $municipio_id;
                             $_SESSION['pre_registro_id'] = $pre_registro_id;
                             $_SESSION['nuc_sim'] = $nuc_sim; 
-                            $_SESSION['municipio_nombre'] = $municipio_nombre;
-                            $_SESSION['tipo_predio'] = $tipo_predio;
-
-                            // Forzar escritura de la sesión antes de redirigir
-                            session_write_close();
-
-                            header("Location: generar_nuc.php");
+                
+                            $_SESSION['municipio_nombre'] = $municipio_nombre; // Guardar en sesión
+                            header("Location: capturar.php");
                             exit();
-
                 
                         } else {
                             $mensaje = "No cumple con los requisitos.";
@@ -976,15 +1113,15 @@
                         function toggleSuperficie() {
                             var tipoPredio = document.getElementById("tipo_predio").value;
                             var superficieInput = document.getElementById("superficie_total");
-                            superficieInput.disabled = tipoPredio !== "RURAL";
-                            superficieInput.required = tipoPredio === "RURAL";
-                            if (tipoPredio !== "RURAL") {
+                            superficieInput.disabled = tipoPredio !== "rural";
+                            superficieInput.required = tipoPredio === "rural";
+                            if (tipoPredio !== "rural") {
                                 superficieInput.value = "";
                             }
                         }
                     </script>
                     <h3>Validar CURP</h3>
-                    <form method="POST" action="generar_nuc.php">
+                    <form method="POST" action="capturarExpediente.php">
                         <label>CURP:</label>
                         <input type="text" name="curp" required>
                         <br><br>
@@ -1002,8 +1139,8 @@
 
                         <label>Tipo de Predio:</label>
                         <select name="tipo_predio" id="tipo_predio" onchange="toggleSuperficie()" required>
-                            <option value="URBANO">Urbano</option>
-                            <option value="RURAL">Rural</option>
+                            <option value="urbano">Urbano</option>
+                            <option value="rural">Rural</option>
                         </select>
                         <br><br>
 
