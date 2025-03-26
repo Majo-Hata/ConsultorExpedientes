@@ -10,7 +10,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $role_id = isset($_POST['role_id']) ? (int) $_POST['role_id'] : 0;
 
     if (empty($username) || empty($password) || empty($full_name) || $area_id == 0 || $role_id == 0) {
-        header("Location: dashboard.php#administrarUsuarios?mensaje=" . urlencode("❌ Error: Todos los campos son obligatorios."));
+        header("Location: dashboard.php#administrarUsuarios?mensaje=" . urlencode("Error: Todos los campos son obligatorios."));
         exit;
     }
 
@@ -20,7 +20,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $stmt->store_result();
 
     if ($stmt->num_rows > 0) {
-        header("Location: dashboard.php#administrarUsuarios?mensaje=" . urlencode("❌ Error: El nombre de usuario o correo ya existen."));
+        header("Location: dashboard.php#administrarUsuarios?mensaje=" . urlencode("Error: El nombre de usuario o correo ya existen."));
         exit;
     }
     $stmt->close();
@@ -40,10 +40,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt->bind_param("iiiii", $user_id, $permiso_consultar, $permiso_ingresar, $permiso_capturar, $permiso_baja);
         $stmt->execute();
 
-        header("Location: dashboard.php#administrarUsuarios?mensaje=" . urlencode("✅ Usuario creado con éxito."));
+        header("Location: dashboard.php#administrarUsuarios?mensaje=" . urlencode("Usuario creado con éxito."));
         exit;
     } else {
-        header("Location: dashboard.php#administrarUsuarios?mensaje=" . urlencode("❌ Error al crear usuario."));
+        header("Location: dashboard.php#administrarUsuarios?mensaje=" . urlencode("Error al crear usuario."));
         exit;
     }
 

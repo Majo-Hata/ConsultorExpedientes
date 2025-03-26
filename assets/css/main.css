@@ -1888,6 +1888,17 @@ input[list="nuc_list"] {
     background-color: #fff; /* Fondo blanco */
     color: #333; /* Color del texto */
 }
+/* Estilos para los checkboxes */
+input[type="checkbox"] {
+	appearance: auto; /* Usa el estilo predeterminado del navegador */
+	display: inline-block !important; /* Fuerza su visibilidad */
+	width: 20px;
+	height: 20px;
+	margin-right: 10px;
+	opacity: 1 !important; /* Asegura que no estén transparentes */
+	visibility: visible !important; /* Asegura que no estén ocultos */
+	pointer-events: auto; /* Habilita la interacción */
+}
 
 /* Estilos para el datalist */
 datalist {
@@ -1908,7 +1919,16 @@ datalist option {
     background-color: #fff; /* Fondo blanco */
     border-bottom: 1px solid #ccc; /* Añade un borde inferior */
 }
-
+.message {
+	margin-top: 10px;
+	padding: 10px;
+	border-radius: 5px;
+	font-weight: bold;
+	text-align: center;
+	background-color: #d4edda;
+	color: #155724;
+}
+.error { background-color: #f8d7da; color: #721c24; }
 datalist option:hover {
     background-color: #f0f0f0; /* Fondo gris claro al pasar el ratón */
 }
@@ -2742,19 +2762,7 @@ datalist option:hover {
 
 			#footer .copyright li:first-child {
 				margin-top: 0;
+			} 
 			}
 
-			/* Estilos para los checkboxes */
-			input[type="checkbox"] {
-				display: inline-block !important; /* Fuerza su visibilidad */
-				width: 20px;
-				height: 20px;
-				margin-right: 10px;
-				opacity: 1 !important; /* Asegura que no estén transparentes */
-				visibility: visible !important; /* Asegura que no estén ocultos */
-			}
 			
-		
-			
-			  
-			}

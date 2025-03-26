@@ -451,8 +451,8 @@
                         </select><br><br>
                         <h3>Permisos</h3>
                         <label for="permiso_consultar">
-                            <input type="checkbox" id="permiso_consultar" name="permiso_consultar" value="1">
-                            Consultar
+                        <input type="checkbox" id="permiso_consultar" name="permiso_consultar" value="1">
+                        Consultar
                         </label><br>
 
                         <label for="permiso_ingresar">
@@ -470,8 +470,8 @@
                         Baja
                         </label><br>
                         <label for="procesos">
-                            <input type="checkbox" id= "procesos" name="procesos" value="!">
-                            Procesos
+                        <input type="checkbox" id= "procesos" name="procesos" value="!">
+                        Procesos
                         </label> <br><br>
 
                         <input type="submit" value="Crear Usuario">
@@ -486,19 +486,6 @@
                             document.getElementById("mensaje").innerHTML = `<div class="message">${params.get("mensaje")}</div>`;
                         }
                     </script>
-
-                    <style>
-                        .message {
-                            margin-top: 10px;
-                            padding: 10px;
-                            border-radius: 5px;
-                            font-weight: bold;
-                            text-align: center;
-                            background-color: #d4edda;
-                            color: #155724;
-                        }
-                        .error { background-color: #f8d7da; color: #721c24; }
-                    </style>
                 </div>
             </section>
             <!-- Seccion de permisos -->
@@ -516,6 +503,12 @@
                     WHERE u.status = 'active'
                     ORDER BY u.username ASC
                 ");
+
+                $usuariosPermisos = [];
+                while ($row = $permisosUsuarios->fetch_assoc()) {
+                    $usuariosPermisos[] = $row;
+                }
+                
 
                 // Obtener roles disponibles
                 $roles = $conn->query("SELECT role_id, role_name FROM roles");
@@ -537,6 +530,8 @@
                             'permiso_baja' => 0,
                             'procesos' => 0
                         ];
+                        error_log("Permisos devueltos para user_id $user_id: " . json_encode($permisos));
+
                         echo json_encode($permisos);
                         exit();
                     }
@@ -577,89 +572,106 @@
                         <label>Usuario:</label>
                         <select id="user_id_permisos" name="user_id" required>
                             <option value="">Seleccione un usuario</option>
-                            <?php foreach ($usersArray as $row) { ?>
-                                <option value="<?= $row['id'] ?>"><?= htmlspecialchars($row['username']) ?></option>
-                            <?php } ?>
-                        </select>
+                            <?php foreach ($usuariosPermisos as $user): ?>
+                                <option value="<?= $user['id'] ?>"><?= htmlspecialchars($user['username']) ?></option>
+                            <?php endforeach; ?>
+                        </select><br><br>
 
-                        <h3>Permisos:</h3>
-                        <label for="permiso_consultar">
-                            <input type="checkbox" id="permiso_consultar2" name="permiso_consultar" value="1">
-                            Consultar
-                        </label><br>
+                        <div id="form-permisos">
+                            <h3>Permisos</h3>
+                            <label>
+                                <input type="checkbox" id="permiso_consultar" name="permiso_consultar" value="1">
+                                Consultar
+                            </label><br>
 
-                        <label for="permiso_ingresar">
-                        <input type="checkbox" id="permiso_ingresar2" name="permiso_ingresar" value="1">
-                        Ingresar
-                        </label><br>
+                            <label>
+                                <input type="checkbox" id="permiso_ingresar" name="permiso_ingresar" value="1">
+                                Ingresar
+                            </label><br>
 
-                        <label for="permiso_capturar">
-                        <input type="checkbox" id="permiso_capturar2" name="permiso_capturar" value="1">
-                        Capturar
-                        </label><br>
+                            <label>
+                                <input type="checkbox" id="permiso_capturar" name="permiso_capturar" value="1">
+                                Capturar
+                            </label><br>
 
-                        <label for="permiso_baja">
-                        <input type="checkbox" id="permiso_baja2" name="permiso_baja" value="1">
-                        Baja
-                        </label><br>
+                            <label>
+                                <input type="checkbox" id="permiso_baja" name="permiso_baja" value="1">
+                                Baja
+                            </label><br>
 
-                        <label for="procesos">
-                            <input type="checkbox" id= "procesos2" name="procesos" value="!">
-                            Procesos
-                        </label> <br><br>
+                            <label>
+                                <input type="checkbox" id="procesos" name="procesos" value="1">
+                                Procesos
+                            </label><br><br>
+                        </div>
 
-                        <button type="submit">Guardar Permisos</button>
-                    </form>
 
                     <br><h3>Permisos por Usuario</h3>
                     <div id="tablaPermisos">
-                        <table>
+                    <table>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Consultar</th>
+                            <th>Ingresar</th>
+                            <th>Capturar</th>
+                            <th>Baja</th>
+                            <th>Procesos</th>
+                        </tr>
+                        <?php foreach ($usuariosPermisos as $row): ?>
                             <tr>
-                                <th>Usuario</th>
-                                <th>Consultar</th>
-                                <th>Ingresar</th>
-                                <th>Capturar</th>
-                                <th>Baja</th>
-                                <th>Procesos</th>
+                                <td><?php echo htmlspecialchars($row['username']); ?></td>
+                                <td><?php echo $row['permiso_consultar'] ? 'Sí' : 'No'; ?></td>
+                                <td><?php echo $row['permiso_ingresar'] ? 'Sí' : 'No'; ?></td>
+                                <td><?php echo $row['permiso_capturar'] ? 'Sí' : 'No'; ?></td>
+                                <td><?php echo $row['permiso_baja'] ? 'Sí' : 'No'; ?></td>
+                                <td><?php echo $row['procesos'] ? 'Sí' : 'No'; ?></td>
                             </tr>
-                            <?php while ($row = $permisosUsuarios->fetch_assoc()): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($row['username']); ?></td>
-                                    <td><?php echo $row['permiso_consultar'] ? 'Sí' : 'No'; ?></td>
-                                    <td><?php echo $row['permiso_ingresar'] ? 'Sí' : 'No'; ?></td>
-                                    <td><?php echo $row['permiso_capturar'] ? 'Sí' : 'No'; ?></td>
-                                    <td><?php echo $row['permiso_baja'] ? 'Sí' : 'No'; ?></td>
-                                    <td><?php echo $row['procesos'] ? 'Sí' : 'No'; ?></td>
-                                </tr>
-                            <?php endwhile; ?>
-                        </table>
+                        <?php endforeach; ?>
+                    </table>
                     </div>
                     <script>
-                        $(document).ready(function() {
-                        function cargarPermisos(user_id) {
-                            $.post('', { action: "get_permisos", user_id: user_id }, function(response) {
-                                let permisos = JSON.parse(response);
-                                $("#permiso_consultar").prop('checked', permisos.permiso_consultar == 1);
-                                $("#permiso_ingresar").prop('checked', permisos.permiso_ingresar == 1);
-                                $("#permiso_capturar").prop('checked', permisos.permiso_capturar == 1);
-                                $("#permiso_baja").prop('checked', permisos.permiso_baja == 1);
-                                $("#procesos").prop('checked', permisos.procesos == 1);
-                            });
-                        }
+                       $(document).ready(function() {
+                            // Cargar permisos cuando se selecciona un usuario
+                            $("#user_id_permisos").change(function() {
+                                let userId = $(this).val();
 
-                        $("#user_id_permisos").change(function() {
-                            if ($(this).val()) {
-                                cargarPermisos($(this).val());
+                                if (userId) {
+                                    cargarPermisos(userId);
+                                } else {
+                                    // Si no hay usuario, limpiar checkboxes
+                                    $("#permiso_consultar, #permiso_ingresar, #permiso_capturar, #permiso_baja, #procesos").prop('checked', false);
+                                }
+                            });
+
+                            // Función para cargar permisos del usuario seleccionado
+                            function cargarPermisos(user_id) {
+                                $.post('permisos_handler.php', { action: "get_permisos", user_id: user_id }, function(response) {
+                                    console.log("Respuesta del servidor:", response);
+
+                                    // Asegurar que se seleccionen los checkboxes dentro del div con ID 'form-permisos'
+                                    $("#form-permisos #permiso_consultar").prop('checked', !!parseInt(response.permiso_consultar));
+                                    $("#form-permisos #permiso_ingresar").prop('checked', !!parseInt(response.permiso_ingresar));
+                                    $("#form-permisos #permiso_capturar").prop('checked', !!parseInt(response.permiso_capturar));
+                                    $("#form-permisos #permiso_baja").prop('checked', !!parseInt(response.permiso_baja));
+                                    $("#form-permisos #procesos").prop('checked', !!parseInt(response.procesos));
+                                }, "json");
                             }
-                        });
 
-                        $("#formPermisos").submit(function(e) {
-                            e.preventDefault();
-                            $.post('', $(this).serialize() + "&action=guardar_permisos", function() {
-                                alert("Permisos guardados correctamente");
+                            // Manejo del envío del formulario para guardar permisos
+                            $("#formPermisos").submit(function(e) {
+                                e.preventDefault();
+
+                                let userId = $("#user_id_permisos").val();
+                                if (!userId) {
+                                    alert("Seleccione un usuario antes de guardar permisos.");
+                                    return;
+                                }
+
+                                $.post('permisos_handler.php', $(this).serialize() + "&action=guardar_permisos", function() {
+                                    alert("Permisos guardados correctamente");
+                                });
                             });
                         });
-                    });
                     </script>
                 </div>
             </section>
@@ -722,6 +734,7 @@
                 $stmt->execute();
                 $result = $stmt->get_result();
                 ?>
+    
             <?php if ($permisos['consultar']): ?>
             <section id="consultar" class="three">
                 <div class="container">
@@ -729,26 +742,20 @@
                         <h2>Consulta de ingresos de expedientes</h2>
                     </header>
                     <form method="post" action="">
-                        <div style="margin-bottom: 10px;">
                             <label for="nuc">NUC:</label>
                             <input type="text" name="nuc" id="nuc">
-                        </div>
-                        <div style="margin-bottom: 10px;">
+
                             <label for="municipio">Municipio:</label>
                             <input type="text" name="municipio" id="municipio">
-                        </div>
-                        <div style="margin-bottom: 10px;">
+
                             <label for="localidad">Localidad:</label>
                             <input type="text" name="localidad" id="localidad">
-                        </div>
-                        <div style="margin-bottom: 10px;">
+
                             <label for="promovente">Promovente:</label>
                             <input type="text" name="promovente" id="promovente">
-                        </div>
-                        <div style="margin-bottom: 10px;">
+
                             <label for="fecha">Fecha:</label>
                             <input type="date" name="fecha" id="fecha">
-                        </div>
                         <input type="submit" value="Buscar">
                     </form>
                     <div class="table-container">
