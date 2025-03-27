@@ -1842,6 +1842,8 @@ input, select, textarea, datalist {
 	}
 
 	form input[type="text"],
+	form input[type="number"],
+	form input[type="date"],
 	form input[type="email"],
 	form input[type="password"],
 	form select,
@@ -1919,6 +1921,30 @@ datalist option {
     background-color: #fff; /* Fondo blanco */
     border-bottom: 1px solid #ccc; /* Añade un borde inferior */
 }
+.suggestions {
+    position: absolute;
+    background: white;
+    border: 1px solid #ccc;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    width: 200px;
+    max-height: 150px;
+    overflow-y: auto;
+    display: none;
+    z-index: 1000; /* Asegura que esté por encima del formulario */
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Sombra para resaltar */
+}
+
+.suggestions li {
+    padding: 8px;
+    cursor: pointer;
+    background: white;
+}
+
+.suggestions li:hover {
+    background: #ddd;
+}
 .message {
 	margin-top: 10px;
 	padding: 10px;
@@ -1934,6 +1960,8 @@ datalist option:hover {
 }
 
 	form input[type="text"],
+	form input[type="number"],
+	form input[type="date"],
 	form input[type="email"],
 	form input[type="password"],
 	form select, datalist{

@@ -1,21 +1,19 @@
 <?php
-// generar_nuc.php
 session_start();
 include 'config.php';
 
-// Verificar que las variables de sesión existan
+// Verificar que existan los datos necesarios en la sesión
 if (
     !isset($_SESSION['curp_validado']) || 
-    !isset($_SESSION['pre_registro_id']) || 
+    !isset($_SESSION['validacion_id']) || 
     !isset($_SESSION['nuc_sim']) ||
     !isset($_SESSION['municipio_id'])
 ) {
-    die("ERROR: No se encontró un CURP, municipio o NUC asociado.");
+    die("ERROR: Datos incompletos en la sesión. Por favor, complete el proceso en el Dashboard.");
 }
 
-$curp          = $_SESSION['curp_validado'];
+$validacion_id = $_SESSION['validacion_id'];
 $municipio_id  = $_SESSION['municipio_id'];
-$pre_registro_id = $_SESSION['pre_registro_id'];
 $nuc_sim       = $_SESSION['nuc_sim'];
 
 // Obtener la clave del municipio
@@ -29,8 +27,6 @@ $stmt_municipio->close();
 if (!$clave_municipio) {
     die("Error: No se encontró la clave del municipio.");
 }
-
-// Asegurar clave de municipio con 3 dígitos
 $clave_municipio = str_pad($clave_municipio, 3, '0', STR_PAD_LEFT);
 
 // Obtener número incremental
@@ -38,6 +34,7 @@ $query_incremental = "SELECT COALESCE(MAX(numero_incremental), 0) + 1 AS nuevo_i
 $result_incremental = $conn->query($query_incremental);
 $row_incremental = $result_incremental->fetch_assoc();
 $numero_incremental = str_pad($row_incremental['nuevo_incremental'], 6, '0', STR_PAD_LEFT);
+$nuevo_incremental = $row_incremental['nuevo_incremental'];
 
 // Año en formato YY
 $anio = date("y");
@@ -45,23 +42,21 @@ $anio = date("y");
 // Generar NUC
 $nuc_generado = $clave_municipio . $numero_incremental . $anio;
 
-// Insertar en la tabla crear_numero
-$stmt_insert_nuc = $conn->prepare("INSERT INTO crear_numero (pre_registro_id, numero_incremental, nuc) VALUES (?, ?, ?)");
+// Insertar en la tabla crear_numero usando validacion_id
+$stmt_insert_nuc = $conn->prepare("INSERT INTO crear_numero (validacion_id, numero_incremental, nuc) VALUES (?, ?, ?)");
 if (!$stmt_insert_nuc) {
     die("Error en la preparación de la consulta: " . $conn->error);
 }
-$stmt_insert_nuc->bind_param("iis", $pre_registro_id, $row_incremental['nuevo_incremental'], $nuc_generado);
-
+$stmt_insert_nuc->bind_param("iis", $validacion_id, $nuevo_incremental, $nuc_generado);
 if (!$stmt_insert_nuc->execute()) {
     die("Error al insertar NUC: " . $stmt_insert_nuc->error);
 }
+$crear_numero_id = $conn->insert_id;
 $stmt_insert_nuc->close();
 
-// Guardar NUC en sesión para la siguiente página
+// Guardar NUC y crear_numero_id en sesión
 $_SESSION['nuc'] = $nuc_generado;
-
-// Forzar escritura de sesión antes de redirigir
-session_write_close();
+$_SESSION['crear_numero_id'] = $crear_numero_id;
 
 header("Location: capturarExpediente.php");
 exit();
