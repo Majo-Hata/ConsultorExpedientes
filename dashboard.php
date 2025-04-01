@@ -1,5 +1,14 @@
 <?php
-    session_start();
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'domain' => 'localhost',
+    'secure' => false,
+    'httponly' => true,
+    'samesite' => 'Lax'
+]);
+session_start();
+   
     include 'config.php';
     if (!isset($_SESSION['user_id'])) {
         header("Location: index.php");
@@ -45,10 +54,9 @@
 
     if (!empty($roles)) {
         $placeholders = implode(',', array_fill(0, count($roles), '?'));
-        $query = $query = "SELECT permiso_consultar, permiso_ingresar, permiso_capturar, permiso_baja, procesos 
-                            FROM permisos 
-                            WHERE user_id IN ($placeholders)";
-
+        $query = "SELECT permiso_consultar, permiso_ingresar, permiso_capturar, permiso_baja, procesos 
+                FROM permisos 
+                WHERE user_id IN ($placeholders)";
         
         $stmt = $conn->prepare($query);
         $stmt->bind_param(str_repeat("i", count($roles)), ...array_keys($roles));
@@ -61,7 +69,6 @@
             $permisos['capturar'] |= (bool) $row['permiso_capturar'];
             $permisos['baja'] |= (bool) $row['permiso_baja'];
             $permisos['procesos'] |= (bool) $row['procesos'];
-
         }
         $stmt->close();
     }
@@ -91,106 +98,125 @@
     $nucs = $stmt->get_result();
     $stmt->close();
 ?>
+            <?php if ($permisos['ingresar']): ?>
 <?php
-                ob_start(); 
-               $mensaje = "";
+    ob_start(); 
+    $mensaje = "";
 
-               // Obtener lista de municipios
-               $municipios = $conn->query("SELECT municipio_id, nombre FROM municipios ORDER BY nombre ASC");
-               
-               if ($_SERVER["REQUEST_METHOD"] == "POST") {
-                   $curp = isset($_POST['curp']) ? trim($_POST['curp']) : "";
-                   $municipio_id = isset($_POST['municipio_id']) ? intval($_POST['municipio_id']) : 0;
-                   $tipo_predio = isset($_POST['tipo_predio']) ? strtolower($_POST['tipo_predio']) : "";
-                   $superficie_total = ($tipo_predio === "rural" && isset($_POST['superficie_total'])) ? floatval($_POST['superficie_total']) : 0;
-                   $nuc_sim = isset($_POST['nuc_sim']) ? trim($_POST['nuc_sim']) : "";
-                   
-                   // Obtener nombre del municipio
-                   $stmt_mun = $conn->prepare("SELECT nombre FROM municipios WHERE municipio_id = ?");
-                   $stmt_mun->bind_param("i", $municipio_id);
-                   $stmt_mun->execute();
-                   $result_mun = $stmt_mun->get_result();
-                   $municipio_row = $result_mun->fetch_assoc();
-                   $municipio_nombre = $municipio_row['nombre'] ?? '';
-                   $stmt_mun->close();
-               
-                   if (empty($curp) || empty($municipio_nombre) || empty($tipo_predio) || empty($nuc_sim)) {
-                       $mensaje = "Todos los campos son obligatorios.";
-                   } else {
-                       // Verificar registros previos de validación para este CURP
-                       $stmt_validacion = $conn->prepare("
-                           SELECT id_validacion, tipo_predio, SUM(superficie_total) AS total_superficie, COUNT(*) AS total_predios 
-                           FROM validacion 
-                           WHERE curp=? 
-                           GROUP BY tipo_predio
-                       ");
-                       $stmt_validacion->bind_param("s", $curp);
-                       $stmt_validacion->execute();
-                       $result_validacion = $stmt_validacion->get_result();
-                       
-                       $permitido = true;
-                       $total_urbanos = 0;
-                       $total_superficie_rural = 0;
-                       $id_validacion = 0;
-                       
-                       while ($row = $result_validacion->fetch_assoc()) {
-                           if (strcasecmp($row['tipo_predio'], 'URBANO') == 0) {
-                               $total_urbanos = $row['total_predios'];
-                           }
-                           if (strcasecmp($row['tipo_predio'], 'RURAL') == 0) {
-                               $total_superficie_rural = $row['total_superficie'];
-                           }
-                       }
-                       $stmt_validacion->close();
-               
-                       // Reglas de validación
-                       if (($tipo_predio === "urbano" && $total_urbanos >= 1) || 
-                           ($tipo_predio === "rural" && ($total_superficie_rural + $superficie_total) > 6)) {
-                           $permitido = false;
-                       }
-                       
-                       if ($permitido) {
-                           $fecha_consulta = date("Y-m-d H:i:s");
-                           $tipo_predio_upper = strtoupper($tipo_predio);
-                           
-                           // Verificar si ya existe un registro en validacion con estos datos
-                           $stmt_check_validacion = $conn->prepare("
-                               SELECT id_validacion FROM validacion 
-                               WHERE curp = ? AND municipio = ? AND tipo_predio = ? AND nuc_sim = ?
-                           ");
-                           $stmt_check_validacion->bind_param("ssss", $curp, $municipio_nombre, $tipo_predio_upper, $nuc_sim);
-                           $stmt_check_validacion->execute();
-                           $stmt_check_validacion->bind_result($id_validacion);
-                           $stmt_check_validacion->fetch();
-                           $stmt_check_validacion->close();
-               
-                           if (empty($id_validacion)) {
-                               $stmt_insert_validacion = $conn->prepare("
-                                   INSERT INTO validacion (nuc_sim, curp, fecha_consulta, municipio, tipo_predio, superficie_total) 
-                                   VALUES (?, ?, ?, ?, ?, ?)
-                               ");
-                               $stmt_insert_validacion->bind_param("sssssd", $nuc_sim, $curp, $fecha_consulta, $municipio_nombre, $tipo_predio_upper, $superficie_total);
-                               $stmt_insert_validacion->execute();
-                               $id_validacion = $conn->insert_id;
-                               $stmt_insert_validacion->close();
-                           }
-                           
-                           // Guardar datos en sesión para los siguientes pasos
-                           $_SESSION['curp_validado']    = $curp;
-                           $_SESSION['municipio_id']      = $municipio_id;
-                           $_SESSION['nuc_sim']           = $nuc_sim;
-                           $_SESSION['municipio_nombre']  = $municipio_nombre;
-                           $_SESSION['tipo_predio']       = $tipo_predio_upper;
-                           $_SESSION['validacion_id']     = $id_validacion;
-                           
-                           header("Location: generar_nuc.php");
-                           exit();
-                       } else {
-                           $mensaje = "No cumple con los requisitos.";
-                       }
-                   }
-               }
-            ?>
+    // Obtener lista de municipios
+    $municipios = $conn->query("SELECT municipio_id, nombre FROM municipios ORDER BY nombre ASC");
+    
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        $curp = isset($_POST['curp']) ? trim($_POST['curp']) : "";
+        $municipio_id = isset($_POST['municipio_id']) ? intval($_POST['municipio_id']) : 0;
+        $tipo_predio = isset($_POST['tipo_predio']) ? strtolower($_POST['tipo_predio']) : "";
+        $superficie_total = isset($_POST['superficie_total']) ? floatval($_POST['superficie_total']) : 0;
+        $sup_has = isset($_POST['sup_has']) ? floatval($_POST['sup_has']) : 0;
+        $nuc_im = isset($_POST['nuc_im']) ? trim($_POST['nuc_im']) : "";
+
+        // Obtener nombre del municipio
+        $stmt_mun = $conn->prepare("SELECT nombre FROM municipios WHERE municipio_id = ?");
+        $stmt_mun->bind_param("i", $municipio_id);
+        $stmt_mun->execute();
+        $result_mun = $stmt_mun->get_result();
+        $municipio_row = $result_mun->fetch_assoc();
+        $municipio_nombre = $municipio_row['nombre'] ?? '';
+        $stmt_mun->close();
+    
+        if (empty($curp) || empty($municipio_nombre) || empty($tipo_predio) || empty($nuc_im)) {
+            //$mensaje = "Todos los campos son obligatorios.";
+        } else {
+            // Verificar registros previos de validación para este CURP
+            $stmt_validacion = $conn->prepare("
+                SELECT id_validacion, tipo_predio, SUM(sup_has) AS total_sup_has, COUNT(*) AS total_predios 
+                FROM validacion 
+                WHERE curp=? 
+                GROUP BY tipo_predio
+            ");
+            $stmt_validacion->bind_param("s", $curp);
+            $stmt_validacion->execute();
+            $result_validacion = $stmt_validacion->get_result();
+
+            $permitido = true;
+            $total_urbanos = 0;
+            $total_sup_has_rural = 0;
+            $id_validacion = 0;
+            
+            while ($row = $result_validacion->fetch_assoc()) {
+                if (strcasecmp($row['tipo_predio'], 'URBANO') == 0) {
+                    $total_urbanos = $row['total_predios'];
+                }
+                if (strcasecmp($row['tipo_predio'], 'RURAL') == 0) {
+                    $total_sup_has_rural = $row['total_sup_has'];
+                }
+            }
+            $stmt_validacion->close();
+    
+            // Reglas de validación
+            if (($tipo_predio === "urbano" && $total_urbanos >= 1) || 
+                ($tipo_predio === "rural" && ($total_sup_has_rural + $sup_has) > 6)) {
+                $permitido = false;
+            }
+                
+            if ($permitido) {
+                $fecha_consulta = date("Y-m-d H:i:s");
+                $tipo_predio_upper = strtoupper($tipo_predio);
+    
+                // Verificar si ya existe un registro en validacion con estos datos
+                $stmt_check_validacion = $conn->prepare("
+                    SELECT id_validacion FROM validacion 
+                    WHERE curp = ? AND municipio = ? AND tipo_predio = ? AND nuc_im = ?
+                ");
+                $stmt_check_validacion->bind_param("ssss", $curp, $municipio_nombre, $tipo_predio_upper, $nuc_im);
+                $stmt_check_validacion->execute();
+                $stmt_check_validacion->bind_result($id_validacion);
+                $stmt_check_validacion->fetch();
+                $stmt_check_validacion->close();
+    
+                if (empty($id_validacion)) {
+                    // Determinar qué campo usar según el tipo de predio
+                    $superficie_total = ($tipo_predio === "urbano") ? $superficie_total : null;
+                    $sup_has = ($tipo_predio === "rural") ? $sup_has : null;
+
+                    $stmt_insert_validacion = $conn->prepare("
+                        INSERT INTO validacion (nuc_im, curp, fecha_consulta, municipio, tipo_predio, superficie_total, sup_has) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt_insert_validacion->bind_param(
+                        "sssssdd",
+                        $nuc_im,
+                        $curp,
+                        $fecha_consulta,
+                        $municipio_nombre,
+                        $tipo_predio_upper,
+                        $superficie_total,
+                        $sup_has
+                    );
+                    $stmt_insert_validacion->execute();
+                    $id_validacion = $stmt_insert_validacion->insert_id;
+                    $stmt_insert_validacion->close();
+                    exit();
+                }
+                
+               // Guardar datos en sesión para los siguientes pasos
+                $_SESSION['curp_validado']    = $curp;
+                $_SESSION['municipio_id']      = $municipio_id;
+                $_SESSION['nuc_im']           = $nuc_im;
+                $_SESSION['municipio_nombre']  = $municipio_nombre;
+                $_SESSION['tipo_predio']       = $tipo_predio_upper;
+                $_SESSION['validacion_id']     = $id_validacion;
+                $_SESSION['superficie_total'] = ($tipo_predio === "urbano") ? $superficie_total : null;
+                $_SESSION['sup_has'] = ($tipo_predio === "rural") ? $sup_has : null;
+
+                header("Location: generar_nuc.php");
+                exit();
+            } else {
+                $mensaje = "No cumple con los requisitos.";
+            }
+        }
+    }
+?>
+            <?php endif; ?>
 <!DOCTYPE HTML>
 <!--
 	Prologue by HTML5 UP
@@ -204,6 +230,11 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
 		<link rel="stylesheet" href="assets/css/main.css" />
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <style>
+        .hidden {
+            display: none;
+        }
+    </style>
         
 	</head>
 	<body class="is-preload">
@@ -220,47 +251,33 @@
                 <!-- Nav -->
                 <nav id="nav">
                     <ul>
+                    
                     <li><a href="dashboard.php" id="link"><span class="icon solid fa-home">Inicio</span></a></li>
-                        <?php if ($area_id == NULL): // Super Administrador ?>
-                            <li><a href="#usuarios" id="usuarios-link"><span class="icon solid fa-home">Gestión de Usuarios</span></a></li>
+                        <?php if ($area_id == 1): // Super Administrador ?>
+                            <li><a href="#usuarios" id="usuarios-link"><span class="icon solid fa-user">Gestión de Usuarios</span></a></li>
                             <li><a href="#areas" id="areas-link"><span class="icon solid fa-th">Gestión de Áreas</span></a></li>
                             <li><a href="#administrarUsuarios" id="administrarUsuarios-link"><span class="icon solid fa-user">Crear nuevo usuario</span></a></li>
-                            <li><a href="#asignarPermisos" id="asignar_Permisos-link"><span class="icon solid fa-envelope">Permisos de usuario</span></a></li>
-                        <?php endif; ?>
-                        <?php if ($area_id == 1): ?>
-                            <li><a href="#" id="contact-link"><span class="icon solid fa-envelope">Acciones para Informática</span></a></li>
-                        <?php elseif ($area_id == 2): ?>
-                            <li><a href="#" id="contact-link"><span class="icon solid fa-envelope">Acciones para Jurídico</span></a></li>
-                        <?php elseif ($area_id == 3): ?>
-                            <li><a href="#" id="contact-link"><span class="icon solid fa-envelope">Acciones para Dirección</span></a></li>
-                        <?php elseif ($area_id == 4): ?>
-                            <li><a href="#" id="contact-link"><span class="icon solid fa-envelope">Acciones para Vinculación</span></a></li>
-                        <?php elseif ($area_id == 5): ?>
-                            <li><a href="#" id="contact-link"><span class="icon solid fa-envelope">Acciones para Área Técnica</span></a></li>
+                            <li><a href="#asignarPermisos" id="asignar_Permisos-link"><span class="icon solid fa-user">Permisos de usuario</span></a></li>
                         <?php endif; ?>
 
                         <?php if ($permisos['consultar']): ?>
-                            <li><a href="#consultar" id="consultar-link"><span class="icon solid fa-envelope">Consulta de ingresos de expedientes</span></a></li>
+                            <li><a href="#consultar" id="consultar-link"><span class="icon solid fa-th">Consulta de expedientes</span></a></li>
                         <?php endif; ?>
                         
                         <?php if ($permisos['procesos']): ?>
-                            <li><a href="#asignarMovimiento" id="asignar_movimiento-link"><span class="icon solid fa-envelope">Asignar tarea a expedientes</span></a></li>
+                            <li><a href="#asignarMovimiento" id="asignar_movimiento-link"><span class="icon solid fa-th">Asignar tarea a expedientes</span></a></li>
                         <?php endif; ?>
 
                         <?php if ($permisos['ingresar']): ?>
-                            <li><a href="#validacion" id="validacion_curp-link"><span class="icon solid fa-envelope">Ingresar nuevo expediente</span></a></li>
+                            <li><a href="#validacion" id="validacion_curp-link"><span class="icon solid fa-th">Ingresar nuevo expediente</span></a></li>
                         <?php endif; ?>
-                        
-                        <?php if ($permisos['capturar']): ?>
-                            <li><a href="#capturar" id="capturar-link"><span class="icon solid fa-envelope">Captura de expediente</span></a></li>                                    
-                        <?php endif; ?>
-                        
+
                         <?php if ($permisos['baja']): ?>
-                            <li><a href="#baja" id="baja-link"><span class="icon solid fa-envelope">Dar de baja</span></a></li>    
+                            <li><a href="#darBajaExpediente" id="darBajaExpediente-link"><span class="icon solid fa-th">Dar de baja un expediente</span></a></li>
                         <?php endif; ?>
 
                         
-                        <li><a href="logout.php"><span class="icon solid fa-envelope">Cerrar sesión</span></a></li>    
+                        <li><a href="logout.php"><span class="icon solid fa-user">Cerrar sesión</span></a></li>    
                     </ul>
                 </nav>
             </div>
@@ -273,34 +290,7 @@
 
         <!-- Main -->
         <div id="main">
-            <!-- Introducción -->
-            <?php if ($area_id != NULL):?>
-            <section class="one dark cover">
-                <div class="container">
-                    <header>
-                        <h3>NUCs en tu área</h3>
-                        <table border="1">
-                            <tr>
-                                <th>ID</th>
-                                <th>NUC</th>
-                                <th>Municipio</th>
-                                <th>Localidad</th>
-                            </tr>
-                            <?php while ($row = $nucs->fetch_assoc()): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($row['id_nuc']); ?></td>
-                                    <td><?php echo htmlspecialchars($row['nuc']); ?></td>
-                                    <td><?php echo htmlspecialchars($row['municipio']); ?></td>
-                                    <td><?php echo htmlspecialchars($row['localidad']); ?></td>
-                                </tr>
-                            <?php endwhile; ?>
-                        </table>
-                    </header>
-                </div>
-            </section>
-            <?php endif; ?>
             <!-- Gestion de historial de movimientos -->
-            <?php if ($area_id == NULL): ?>
                 <section class="one dark cover">
                 <div class="container">
                     <header>
@@ -397,6 +387,7 @@
                 xhr.send();
             });
             </script>
+                        <?php if ($area_id == 1): ?>
             <!-- Gestion de usuarios -->
             <section id="usuarios" class="two">
                 <div class="container">
@@ -423,13 +414,17 @@
                         <?php while ($row = $result->fetch_assoc()) { ?>
                             <tr>
                                 <td><?= $row['id'] ?></td>
-                                <td><?= $row['username'] ?></td>
-                                <td><?= $row['email'] ?></td>
-                                <td><?= $row['status'] ?></td>
-                                <td><?= $row['roles'] ?></td>
+                                <td><?= htmlspecialchars($row['username']) ?></td>
+                                <td><?= htmlspecialchars($row['email']) ?></td>
+                                <td><?= htmlspecialchars($row['status']) ?></td>
+                                <td><?= htmlspecialchars($row['roles'] ?? '') ?></td>
                                 <td>
-                                    <a href="editarUsuario.php?id=<?= $row['id'] ?>">Editar</a> |
-                                    <a href="desactivar.php?id=<?= $row['id'] ?>">Desactivar</a>
+                                <a href="editarUsuario.php?id=<?= $row['id'] ?>">Editar</a>
+                                    <?php if ($row['status'] === 'active'): ?>
+                                        <a href="desactivar.php?id=<?= $row['id'] ?>">Desactivar</a>
+                                    <?php else: ?>
+                                        <a href="activar.php?id=<?= $row['id'] ?>">Activar</a>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php } ?>
@@ -465,14 +460,14 @@
                         // Obtener todas las áreas
                         $result = $conn->query("SELECT * FROM areas");
                     ?>
-                    <form method="POST">
+                    <!-- <form method="POST">
                         <label>Nombre del Área:</label>
                         <input type="text" name="nombre_area" required>
                         <label>Descripción:</label>
                         <input type="text" name="descripcion">
                         <button type="submit">Agregar Área</button>
-                    </form>
-                    <br><h3>Áreas y Usuarios</h3>
+                    </form> -->
+                    <h3>Áreas y Usuarios</h3>
                     <table>
                         <tr>
                             <th>Área</th>
@@ -704,7 +699,8 @@
                                 Procesos
                             </label><br>
                         </div>
-
+                        <button type="submit">Guardar Permisos</button>
+                    </form>
 
                     <br><h3>Permisos por Usuario</h3>
                     <div id="tablaPermisos">
@@ -888,7 +884,7 @@
                                             echo "<tr>
                                                     <td>" . htmlspecialchars($row['fecha'] ?? '') . "</td>
                                                     <td>" . htmlspecialchars($row['nuc'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['nuc_sim'] ?? '') . "</td>
+                                                    <td>" . htmlspecialchars($row['nuc_im'] ?? '') . "</td>
                                                     <td>" . htmlspecialchars($row['municipio'] ?? '') . "</td>
                                                     <td>" . htmlspecialchars($row['localidad'] ?? '') . "</td>
                                                     <td>" . htmlspecialchars($row['promovente'] ?? '') . "</td>
@@ -1062,27 +1058,33 @@
             <?php endif; ?>
             <!-- Seccion de pre-registro -->
             <?php if ($permisos['ingresar']): ?>
-            
             <section id="validacion" class="two">
                 <div class="container">
                     <header>
                         <h2>Ingresar nuevo expediente</h2>
                     </header>
                     <script>
-                         function toggleSuperficie() {
-                            var tipoPredio = document.getElementById("tipo_predio").value;
-                            var superficieInput = document.getElementById("superficie_total");
-                            superficieInput.disabled = (tipoPredio !== "rural");
-                            superficieInput.required = (tipoPredio === "rural");
-                            if (tipoPredio !== "rural") {
-                                superficieInput.value = "";
+                        function mostrarCampoSuperficie() {
+                            const tipoPredio = document.getElementById('tipo_predio').value.trim().toUpperCase();
+                            const campoSuperficieTotal = document.getElementById('campo_superficie_total');
+                            const campoSupHas = document.getElementById('campo_sup_has');
+
+                            // Oculta ambos campos inicialmente
+                            campoSuperficieTotal.classList.add('hidden');
+                            campoSupHas.classList.add('hidden');
+
+                            // Muestra el campo correspondiente según el tipo de predio seleccionado
+                            if (tipoPredio === 'URBANO') {
+                                campoSuperficieTotal.classList.remove('hidden');
+                            } else if (tipoPredio === 'RURAL') {
+                                campoSupHas.classList.remove('hidden');
                             }
                         }
                     </script>
                     <h3>Validar CURP</h3>
                     <form method="POST" action="dashboard.php#validacion">
                         <label>CURP:</label>
-                        <input type="text" name="curp" required><br><br>
+                        <input type="text" name="curp" required><br>
                         
                         <label>Municipio:</label>
                         <select name="municipio_id" required>
@@ -1092,19 +1094,26 @@
                                     <?php echo htmlspecialchars($row['nombre']); ?>
                                 </option>
                             <?php endwhile; ?>
-                        </select><br><br>
+                        </select><br>
                         
-                        <label>Tipo de Predio:</label>
-                        <select name="tipo_predio" id="tipo_predio" onchange="toggleSuperficie()" required>
-                            <option value="urbano">Urbano</option>
-                            <option value="rural">Rural</option>
-                        </select><br><br>
-                        
-                        <label>Superficie Total (hectáreas):</label>
-                        <input type="number" step="0.01" name="superficie_total" id="superficie_total" disabled><br><br>
-                        
-                        <label>NUC_SIM:</label>
-                        <input type="text" name="nuc_sim" required><br><br>
+                        <label for="tipo_predio">Tipo de Predio:</label>
+                        <select id="tipo_predio" name="tipo_predio" required onchange="mostrarCampoSuperficie()">
+                            <option value="">Seleccione una opción</option>
+                            <option value="URBANO">Urbano</option>
+                            <option value="RURAL">Rural</option>
+                        </select>
+
+                        <div id="campo_superficie_total" class="hidden">
+                            <label for="superficie_total">Superficie Total (m²):</label>
+                            <input type="number" id="superficie_total" name="superficie_total" min="0" step="0.01">
+                        </div>
+
+                        <div id="campo_sup_has" class="hidden">
+                            <label for="sup_has">Superficie (hectáreas):</label>
+                            <input type="number" id="sup_has" name="sup_has" min="0" step="0.01">
+                        </div>
+                        <label>NUC_IM:</label>
+                        <input type="text" name="nuc_im" required><br><br>
                         
                         <button type="submit">Validar y Guardar</button>
                     </form>
@@ -1115,161 +1124,71 @@
                 ?>
             </section>
             <?php endif; ?>
-            <!-- Seccion de captura de expediente -->
-            <?php if ($permisos['capturar']): ?>
-            <?php
-                // Obtener municipio desde sesión
-                $municipio_nombre = isset($_SESSION['municipio_nombre']) ? $_SESSION['municipio_nombre'] : '';
+            <!-- Seccion de baja de expedientes -->
+            <?php if ($permisos['baja']): ?>
+                <section id="darBajaExpediente" class="five">
+                    <div class="container">
+                        <header>
+                            <h2>Dar de Baja un Expediente</h2>
+                        </header>
+                        <form method="POST" action="#darBajaExpediente">
+                            <label for="nuc_baja">Ingrese el NUC del expediente:</label>
+                            <input type="text" id="nuc_baja" name="nuc_baja" required>
+                            <button type="submit">Buscar Expediente</button>
+                        </form>
 
-                // Obtener el nuc_sim desde la sesión
-                $nuc_sim = isset($_SESSION['nuc_sim']) ? $_SESSION['nuc_sim'] : '';
-                $nuc_generado = isset($_SESSION['nuc_generado']) ? $_SESSION['nuc_generado'] : '';
+                        <?php
+                        if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['nuc_baja'])) {
+                            $nuc_baja = trim($_POST['nuc_baja']);
 
-                // Generar NUC: Obtener el último NUC para continuar con el siguiente
-                $query = "SELECT nuc FROM ingresos ORDER BY nuc DESC LIMIT 1";
-                $result = $conn->query($query);
-                $nuc = 1; // Valor por defecto
-                if ($result && $row = $result->fetch_assoc()) {
-                    $nuc = $row['nuc'] + 1;  // Incrementar NUC
-                }
+                            // Buscar el expediente por NUC
+                            $stmt = $conn->prepare("SELECT * FROM ingresos WHERE nuc = ?");
+                            $stmt->bind_param("s", $nuc_baja);
+                            $stmt->execute();
+                            $result = $stmt->get_result();
+                            $expediente = $result->fetch_assoc();
+                            $stmt->close();
 
-                // Si el formulario se ha enviado
-                if ($_SERVER["REQUEST_METHOD"] == "POST") {
-                    $fecha = $_POST['fecha'] ?? null;
-                    $nuc = $_POST['nuc'] ?? null;
-                    $nuc_sim = $_POST['nuc_sim'] ?? null;
-                    $municipio = $_POST['municipio'] ?? null;
-                    $localidad = $_POST['localidad'] ?? null;
-                    $promovente = $_POST['promovente'] ?? null;
-                    $referencia_pago = $_POST['referencia_pago'] ?? null;
-                    $tipo_predio = $_POST['tipo_predio'] ?? null;
-                    $tipo_tramite = $_POST['tipo_tramite'] ?? null;
-                    $direccion = $_POST['direccion'] ?? null;
-                    $denominacion = $_POST['denominacion'] ?? null;
-                    $superficie_total = $_POST['superficie_total'] ?? null;
-                    $sup_has = $_POST['sup_has'] ?? null;
-                    $superficie_construida = $_POST['superficie_construida'] ?? null;
-                    $forma_valorada = $_POST['forma_valorada'] ?? null;
-                    $procedente = $_POST['procedente'] ?? null;
-                    $estado = 1;
-                
-                    // Validar que los campos obligatorios no estén vacíos
-                    if ($fecha && $nuc && $nuc_sim && $municipio && $localidad && $promovente && $referencia_pago && $tipo_predio && $tipo_tramite && $direccion && $denominacion && $superficie_total && $sup_has && $superficie_construida && $forma_valorada && $procedente !== null) {
-                        // Insertar en la base de datos
-                        $stmt = $conn->prepare("INSERT INTO ingresos (fecha, nuc, nuc_sim, municipio, localidad, promovente, referencia_pago, tipo_predio, tipo_tramite, direccion, denominacion, superficie_total, sup_has, superficie_construida, forma_valorada, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                        $stmt->bind_param("ssssssssssssssss", $fecha, $nuc, $nuc_sim, $municipio, $localidad, $promovente, $referencia_pago, $tipo_predio, $tipo_tramite, $direccion, $denominacion, $superficie_total, $sup_has, $superficie_construida, $forma_valorada, $estado);
-                
-                        if ($stmt->execute()) {
-                            echo "Registro guardado correctamente";
-                        } else {
-                            echo "Error al guardar los datos";
-                        }
-                
-                        $stmt->close();
-                    } else {
-                        echo "Todos los campos son obligatorios";
-                    }
-                
-                    $conn->close();
-                    exit();
-                }
-            ?>
-            <section id="capturar" class="three">
-                <div class="container">
-                    <header>
-                        <h2>Captura de expediente</h2>
-                    </header>
-                    <script>
-                        function cargarLocalidades() {
-                            var municipio = document.getElementById("municipio").value;
-                            var localidadSelect = document.getElementById("localidad");
+                            if ($expediente) {
+                                // Mostrar información del expediente
+                                echo "<h3>Información del Expediente</h3>";
+                                echo "<p><strong>NUC:</strong> " . htmlspecialchars($expediente['nuc']) . "</p>";
+                                echo "<p><strong>Municipio:</strong> " . htmlspecialchars($expediente['municipio']) . "</p>";
+                                echo "<p><strong>Localidad:</strong> " . htmlspecialchars($expediente['localidad']) . "</p>";
+                                echo "<p><strong>Promovente:</strong> " . htmlspecialchars($expediente['promovente']) . "</p>";
+                                echo "<p><strong>Estado Actual:</strong> " . ($expediente['estado'] == 1 ? "Activo" : "Inactivo") . "</p>";
 
-                            localidadSelect.innerHTML = "<option value=''>-- Seleccione una Localidad --</option>";
-
-                            if (municipio !== "") {
-                                var xhr = new XMLHttpRequest();
-                                xhr.open("GET", "obtener_localidades.php?municipio=" + encodeURIComponent(municipio), true);
-                                xhr.onreadystatechange = function () {
-                                    if (xhr.readyState === 4 && xhr.status === 200) {
-                                        var localidades = JSON.parse(xhr.responseText);
-                                        localidades.forEach(function(localidad) {
-                                            var option = document.createElement("option");
-                                            option.value = localidad;
-                                            option.textContent = localidad;
-                                            localidadSelect.appendChild(option);
-                                        });
-                                    }
-                                };
-                                xhr.send();
+                                // Botón para dar de baja
+                                if ($expediente['estado'] == 1) {
+                                    echo '<form method="POST" action="#darBajaExpediente">';
+                                    echo '<input type="hidden" name="nuc_dar_baja" value="' . htmlspecialchars($expediente['nuc']) . '">';
+                                    echo '<button type="submit" style="background-color: red; color: white; padding: 10px; border: none; cursor: pointer;">Dar de Baja Expediente</button>';
+                                    echo '</form>';
+                                } else {
+                                    echo "<p style='color: red;'>El expediente ya está dado de baja.</p>";
+                                }
+                            } else {
+                                echo "<p style='color: red;'>No se encontró ningún expediente con el NUC proporcionado.</p>";
                             }
                         }
-                    </script>
-                    <form method="post">
-                        <label for="fecha">Fecha:</label>
-                        <input type="date" id="fecha" name="fecha" required><br><br>
 
-                        <label for="nuc">NUC:</label>
-                        <input type="text" id="nuc" name="nuc" value="<?php echo htmlspecialchars($nuc_generado); ?>" readonly><br><br>
+                        // Procesar la baja del expediente
+                        if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['nuc_dar_baja'])) {
+                            $nuc_dar_baja = trim($_POST['nuc_dar_baja']);
 
-                        <label for="nuc_sim">NUC SIM:</label>
-                        <input type="text" id="nuc_sim" name="nuc_sim" value="<?php echo htmlspecialchars($nuc_sim); ?>" readonly><br><br>
-
-                        <label>Municipio:</label>
-                        <input type="text" id="municipio" name="municipio" value="<?php echo htmlspecialchars($municipio_nombre); ?>" readonly>
-                        <br><br>
-
-                        <label>Localidad:</label>
-                        <select name="localidad" id="localidad" required>
-                            <option value="">-- Seleccione una Localidad --</option>
-                        </select>
-                        <br><br>
-
-                        <label for="promovente">Promovente:</label>
-                        <input type="text" id="promovente" name="promovente" required><br><br>
-
-                        <label for="referencia_pago">Referencia de Pago:</label>
-                        <input type="text" id="referencia_pago" name="referencia_pago" required><br><br>
-
-                        <label for="tipo_predio">Tipo de Predio:</label>
-                        <input type="text" id="tipo_predio" name="tipo_predio" required><br><br>
-
-                        <label for="tipo_tramite">Tipo de Trámite:</label>
-                        <input type="text" id="tipo_tramite" name="tipo_tramite" required><br><br>
-
-                        <label for="direccion">Dirección:</label>
-                        <input type="text" id="direccion" name="direccion" required><br><br>
-
-                        <label for="denominacion">Denominación:</label>
-                        <input type="text" id="denominacion" name="denominacion" required><br><br>
-
-                        <label for="superficie_total">Superficie Total:</label>
-                        <input type="text" id="superficie_total" name="superficie_total" required><br><br>
-
-                        <label for="sup_has">Superficie en Hectáreas:</label>
-                        <input type="text" id="sup_has" name="sup_has" required><br><br>
-
-                        <label for="superficie_construida">Superficie Construida:</label>
-                        <input type="text" id="superficie_construida" name="superficie_construida" required><br><br>
-
-                        <label for="forma_valorada">Forma Valorada:</label>
-                        <input type="text" id="forma_valorada" name="forma_valorada" required><br><br>
-                        
-                        <label for="procedente">Procedente:</label>
-                        <select name="procedente" id="procedente">
-                        <option value="1">Procedente</option>
-                        <option value="0">No Procedente</option>
-                        </select>
-                        
-                        <button type="submit">Guardar</button>
-                    </form>
-
-                    <script>
-                        document.addEventListener("DOMContentLoaded", function () {
-                            cargarLocalidades();
-                        });
-                    </script>
-                </div>
-            </section>
+                            // Actualizar el estado del expediente a 0
+                            $stmt = $conn->prepare("UPDATE ingresos SET estado = 0 WHERE nuc = ?");
+                            $stmt->bind_param("s", $nuc_dar_baja);
+                            if ($stmt->execute()) {
+                                echo "<p style='color: green;'>El expediente con NUC " . htmlspecialchars($nuc_dar_baja) . " ha sido dado de baja correctamente.</p>";
+                            } else {
+                                echo "<p style='color: red;'>Error al dar de baja el expediente. Por favor, intente nuevamente.</p>";
+                            }
+                            $stmt->close();
+                        }
+                        ?>
+                    </div>
+                </section>
             <?php endif; ?>
         </div>
     </body>

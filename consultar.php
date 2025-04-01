@@ -75,7 +75,7 @@ $result = $conn->query($sql);
                         <td>{$row['id_nuc']}</td>
                         <td>{$row['fecha']}</td>
                         <td>{$row['nuc']}</td>
-                        <td>{$row['nuc_sim']}</td>
+                        <td>{$row['nuc_im']}</td>
                         <td>{$row['municipio']}</td>
                         <td>{$row['localidad']}</td>
                         <td>{$row['promovente']}</td>

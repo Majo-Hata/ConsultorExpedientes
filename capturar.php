@@ -10,8 +10,8 @@ if (!isset($_SESSION['user_id'])) {
 // Obtener municipio desde sesión
 $municipio_nombre = isset($_SESSION['municipio_nombre']) ? $_SESSION['municipio_nombre'] : '';
 
-// Obtener el nuc_sim desde la sesión
-$nuc_sim = isset($_SESSION['nuc_sim']) ? $_SESSION['nuc_sim'] : '';
+// Obtener el nuc_im desde la sesión
+$nuc_im = isset($_SESSION['nuc_im']) ? $_SESSION['nuc_im'] : '';
 $nuc_generado = isset($_SESSION['nuc_generado']) ? $_SESSION['nuc_generado'] : '';
 
 // Generar NUC: Obtener el último NUC para continuar con el siguiente
@@ -26,7 +26,7 @@ if ($result && $row = $result->fetch_assoc()) {
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $fecha = $_POST['fecha'];
     $nuc = $_POST['nuc'];
-    $nuc_sim = $_POST['nuc_sim'];
+    $nuc_im = $_POST['nuc_im'];
     $municipio = $_POST['municipio'];
     $localidad = $_POST['localidad'];
     $promovente = $_POST['promovente'];
@@ -43,8 +43,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $estado = 1;
 
     // Insertar en la base de datos
-    $stmt = $conn->prepare("INSERT INTO ingresos (fecha, nuc, nuc_sim, municipio, localidad, promovente, referencia_pago, tipo_predio, tipo_tramite, direccion, denominacion, superficie_total, sup_has, superficie_construida, forma_valorada, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssssssssssssssss", $fecha, $nuc, $nuc_sim, $municipio, $localidad, $promovente, $referencia_pago, $tipo_predio, $tipo_tramite, $direccion, $denominacion, $superficie_total, $sup_has, $superficie_construida, $forma_valorada, $estado);
+    $stmt = $conn->prepare("INSERT INTO ingresos (fecha, nuc, nuc_im, municipio, localidad, promovente, referencia_pago, tipo_predio, tipo_tramite, direccion, denominacion, superficie_total, sup_has, superficie_construida, forma_valorada, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssssssssssssss", $fecha, $nuc, $nuc_im, $municipio, $localidad, $promovente, $referencia_pago, $tipo_predio, $tipo_tramite, $direccion, $denominacion, $superficie_total, $sup_has, $superficie_construida, $forma_valorada, $estado);
 
     if ($stmt->execute()) {
         echo "<script>alert('Registro guardado correctamente'); window.location.href='capturar.php';</script>";
@@ -99,8 +99,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <label for="nuc">NUC:</label>
         <input type="text" id="nuc" name="nuc" value="<?php echo htmlspecialchars($nuc_generado); ?>" readonly><br><br>
 
-        <label for="nuc_sim">NUC SIM:</label>
-        <input type="text" id="nuc_sim" name="nuc_sim" value="<?php echo htmlspecialchars($nuc_sim); ?>" readonly><br><br>
+        <label for="nuc_im">NUC SIM:</label>
+        <input type="text" id="nuc_im" name="nuc_im" value="<?php echo htmlspecialchars($nuc_im); ?>" readonly><br><br>
 
         <label>Municipio:</label>
         <input type="text" id="municipio" name="municipio" value="<?php echo htmlspecialchars($municipio_nombre); ?>" readonly>

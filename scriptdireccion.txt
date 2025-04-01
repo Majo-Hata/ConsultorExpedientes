@@ -9,35 +9,23 @@ CREATE TABLE municipios (
 
 CREATE TABLE validacion (
     id_validacion INT AUTO_INCREMENT PRIMARY KEY,
-    nuc_sim VARCHAR(50),
+    nuc_sim VARCHAR(20),
     curp VARCHAR(18) NOT NULL,
     fecha_consulta DATETIME NOT NULL,
-    municipio VARCHAR(100) NOT NULL, -- también se puede relacionar con "municipios" mediante FK si se desea
-    tipo_predio ENUM('urbano','rural') NOT NULL,
-    superficie_total DECIMAL(10,2) NULL  -- en hectáreas o la unidad que uses
-);
-
-CREATE TABLE pre_registros (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    curp VARCHAR(18) NOT NULL,
-    municipio_id INT NOT NULL,
-    fecha_pre_registro DATE NOT NULL,
-    -- Otros campos necesarios del pre-registro
-    FOREIGN KEY (municipio_id) REFERENCES municipios(id)
+    municipio VARCHAR(100) NOT NULL,
+    tipo_predio ENUM('URBANO','RURAL') NOT NULL,
+    superficie_total DECIMAL(10,2) NULL 
+    sup_has DECIMAL(10,2) NULL 
 );
 
 CREATE TABLE crear_numero (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    pre_registro_id INT NOT NULL,
+    id_numero INT AUTO_INCREMENT PRIMARY KEY,
+    validacion_id INT NOT NULL,  -- Se relaciona con la validación en lugar del pre-registro
     numero_incremental INT NOT NULL,
-    nuc VARCHAR(11),  -- Se guarda el valor generado manualmente
-    FOREIGN KEY (pre_registro_id) REFERENCES pre_registros(id)
+    nuc VARCHAR(11) UNIQUE, 
+    FOREIGN KEY (validacion_id) REFERENCES validacion(id_validacion) ON DELETE CASCADE
 );
-ALTER TABLE crear_numero
-ADD CONSTRAINT fk_area_actual 
-FOREIGN KEY (area_actual) REFERENCES areas(area_id)
-ON UPDATE CASCADE
-ON DELETE SET NULL;
+
 
 CREATE TABLE ingresos (
     id_nuc INT AUTO_INCREMENT PRIMARY KEY,
@@ -58,6 +46,7 @@ CREATE TABLE ingresos (
     forma_valorada VARCHAR(100),
     procedente INT,
     estado INT
+(agregar los id de crear_numero y de validacion)
 );
 
 CREATE TABLE users (

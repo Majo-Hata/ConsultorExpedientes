@@ -6,7 +6,7 @@ include 'config.php';
 if (
     !isset($_SESSION['curp_validado']) || 
     !isset($_SESSION['validacion_id']) || 
-    !isset($_SESSION['nuc_sim']) ||
+    !isset($_SESSION['nuc_im']) ||
     !isset($_SESSION['municipio_id'])
 ) {
     die("ERROR: Datos incompletos en la sesión. Por favor, complete el proceso en el Dashboard.");
@@ -14,7 +14,7 @@ if (
 
 $validacion_id = $_SESSION['validacion_id'];
 $municipio_id  = $_SESSION['municipio_id'];
-$nuc_sim       = $_SESSION['nuc_sim'];
+$nuc_im       = $_SESSION['nuc_im'];
 
 // Obtener la clave del municipio
 $stmt_municipio = $conn->prepare("SELECT clave_municipio FROM municipios WHERE municipio_id = ?");
