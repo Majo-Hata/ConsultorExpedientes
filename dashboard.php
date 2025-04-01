@@ -47,31 +47,28 @@ session_start();
     $permisos = [
         'consultar' => false,
         'ingresar' => false,
-        'capturar' => false,
+        'editar' => false,
         'baja' => false,
         'procesos' => false
     ];
 
-    if (!empty($roles)) {
-        $placeholders = implode(',', array_fill(0, count($roles), '?'));
-        $query = "SELECT permiso_consultar, permiso_ingresar, permiso_capturar, permiso_baja, procesos 
-                FROM permisos 
-                WHERE user_id IN ($placeholders)";
-        
-        $stmt = $conn->prepare($query);
-        $stmt->bind_param(str_repeat("i", count($roles)), ...array_keys($roles));
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        while ($row = $result->fetch_assoc()) {
-            $permisos['consultar'] |= (bool) $row['permiso_consultar'];
-            $permisos['ingresar'] |= (bool) $row['permiso_ingresar'];
-            $permisos['capturar'] |= (bool) $row['permiso_capturar'];
-            $permisos['baja'] |= (bool) $row['permiso_baja'];
-            $permisos['procesos'] |= (bool) $row['procesos'];
-        }
-        $stmt->close();
+  
+    $query = "SELECT permiso_consultar, permiso_ingresar, permiso_editar, permiso_baja, procesos 
+    FROM permisos 
+    WHERE user_id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("i", $user_id); // Usa el user_id directamente
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    while ($row = $result->fetch_assoc()) {
+        $permisos['consultar'] = $permisos['consultar'] || (bool) $row['permiso_consultar'];
+        $permisos['ingresar'] = $permisos['ingresar'] || (bool) $row['permiso_ingresar'];
+        $permisos['editar'] = $permisos['editar'] || (bool) $row['permiso_editar'];
+        $permisos['baja'] = $permisos['baja'] || (bool) $row['permiso_baja'];
+        $permisos['procesos'] = $permisos['procesos'] || (bool) $row['procesos'];
     }
+    $stmt->close();
 
 
     // Definir las opciones del menú según el área
@@ -98,7 +95,7 @@ session_start();
     $nucs = $stmt->get_result();
     $stmt->close();
 ?>
-            <?php if ($permisos['ingresar']): ?>
+
 <?php
     ob_start(); 
     $mensaje = "";
@@ -216,7 +213,7 @@ session_start();
         }
     }
 ?>
-            <?php endif; ?>
+
 <!DOCTYPE HTML>
 <!--
 	Prologue by HTML5 UP
@@ -299,25 +296,26 @@ session_start();
                     <?php
                         // Inicializar la variable $search_nuc
                         $search_nuc = isset($_POST['search_nuc']) ? trim($_POST['search_nuc']) : '';
-                        
+
                         if ($search_nuc) {
                             $query = "SELECT h.id, h.nuc_id, i.nuc, h.area_origen, h.area_destino, h.comentario, h.fecha_movimiento, u.full_name 
-                                        FROM historiales h
-                                        JOIN users u ON h.usuario_id = u.id
-                                        JOIN ingresos i ON h.nuc_id = i.id_nuc
-                                        WHERE i.nuc = ?
-                                        ORDER BY h.fecha_movimiento DESC";
+                                    FROM historiales h
+                                    JOIN users u ON h.usuario_id = u.id
+                                    JOIN ingresos i ON h.nuc_id = i.id_nuc
+                                    WHERE i.nuc = ? AND i.estado = 1 -- Agregar condición para registros activos
+                                    ORDER BY h.fecha_movimiento DESC";
                             $stmt = $conn->prepare($query);
                             $stmt->bind_param("s", $search_nuc);
                             $stmt->execute();
                             $result = $stmt->get_result();
                         } else {
                             $query = "SELECT h.id, h.nuc_id, i.nuc, h.area_origen, h.area_destino, h.comentario, h.fecha_movimiento, u.full_name 
-                                        FROM historiales h
-                                        JOIN users u ON h.usuario_id = u.id
-                                        JOIN ingresos i ON h.nuc_id = i.id_nuc
-                                        ORDER BY h.fecha_movimiento DESC
-                                        LIMIT 10";
+                                    FROM historiales h
+                                    JOIN users u ON h.usuario_id = u.id
+                                    JOIN ingresos i ON h.nuc_id = i.id_nuc
+                                    WHERE i.estado = 1 -- Agregar condición para registros activos
+                                    ORDER BY h.fecha_movimiento DESC
+                                    LIMIT 10";
                             $result = $conn->query($query);
                         }
                     ?>
@@ -555,9 +553,9 @@ session_start();
                         Ingresar
                         </label>
 
-                        <label for="permiso_capturar">
-                        <input type="checkbox" id="permiso_capturar" name="permiso_capturar" value="1">
-                        Capturar
+                        <label for="permiso_editar">
+                        <input type="checkbox" id="permiso_editar" name="permiso_editar" value="1">
+                        Editar
                         </label>
 
                         <label for="permiso_baja">
@@ -590,7 +588,7 @@ session_start();
                     SELECT u.id, u.username, 
                         COALESCE(p.permiso_consultar, 0) AS permiso_consultar, 
                         COALESCE(p.permiso_ingresar, 0) AS permiso_ingresar, 
-                        COALESCE(p.permiso_capturar, 0) AS permiso_capturar, 
+                        COALESCE(p.permiso_editar, 0) AS permiso_editar, 
                         COALESCE(p.permiso_baja, 0) AS permiso_baja, 
                         COALESCE(p.procesos, 0) AS procesos
                     FROM users u
@@ -621,7 +619,7 @@ session_start();
                         $permisos = $result->fetch_assoc() ?: [
                             'permiso_consultar' => 0,
                             'permiso_ingresar' => 0,
-                            'permiso_capturar' => 0,
+                            'permiso_editar' => 0,
                             'permiso_baja' => 0,
                             'procesos' => 0
                         ];
@@ -635,7 +633,7 @@ session_start();
                         $user_id = $_POST['user_id'];
                         $permiso_consultar = isset($_POST['permiso_consultar']) ? 1 : 0;
                         $permiso_ingresar = isset($_POST['permiso_ingresar']) ? 1 : 0;
-                        $permiso_capturar = isset($_POST['permiso_capturar']) ? 1 : 0;
+                        $permiso_editar = isset($_POST['permiso_editar']) ? 1 : 0;
                         $permiso_baja = isset($_POST['permiso_baja']) ? 1 : 0;
                         $procesos = isset($_POST['procesos']) ? 1 : 0;
                 
@@ -644,12 +642,12 @@ session_start();
                         $check_query->execute();
                         $result = $check_query->get_result();
                         if ($result->num_rows > 0) {
-                            $update_query = $conn->prepare("UPDATE permisos SET permiso_consultar = ?, permiso_ingresar = ?, permiso_capturar = ?, permiso_baja = ?, procesos = ? WHERE user_id = ?");
-                            $update_query->bind_param("iiiiii", $permiso_consultar, $permiso_ingresar, $permiso_capturar, $permiso_baja, $procesos, $user_id);
+                            $update_query = $conn->prepare("UPDATE permisos SET permiso_consultar = ?, permiso_ingresar = ?, permiso_editar = ?, permiso_baja = ?, procesos = ? WHERE user_id = ?");
+                            $update_query->bind_param("iiiiii", $permiso_consultar, $permiso_ingresar, $permiso_editar, $permiso_baja, $procesos, $user_id);
                             $update_query->execute();
                         } else {
-                            $insert_query = $conn->prepare("INSERT INTO permisos (user_id, permiso_consultar, permiso_ingresar, permiso_capturar, permiso_baja, procesos) VALUES (?, ?, ?, ?, ?, ?)");
-                            $insert_query->bind_param("iiiiii", $user_id, $permiso_consultar, $permiso_ingresar, $permiso_capturar, $permiso_baja, $procesos);
+                            $insert_query = $conn->prepare("INSERT INTO permisos (user_id, permiso_consultar, permiso_ingresar, permiso_editar, permiso_baja, procesos) VALUES (?, ?, ?, ?, ?, ?)");
+                            $insert_query->bind_param("iiiiii", $user_id, $permiso_consultar, $permiso_ingresar, $permiso_editar, $permiso_baja, $procesos);
                             $insert_query->execute();
                         }
                         exit();
@@ -685,8 +683,8 @@ session_start();
                             </label>
 
                             <label>
-                                <input type="checkbox" id="permiso_capturar" name="permiso_capturar" value="1">
-                                Capturar
+                                <input type="checkbox" id="permiso_editar" name="permiso_editar" value="1">
+                                Editar
                             </label>
 
                             <label>
@@ -709,7 +707,7 @@ session_start();
                             <th>Usuario</th>
                             <th>Consultar</th>
                             <th>Ingresar</th>
-                            <th>Capturar</th>
+                            <th>Editar</th>
                             <th>Baja</th>
                             <th>Procesos</th>
                         </tr>
@@ -718,7 +716,7 @@ session_start();
                                 <td><?php echo htmlspecialchars($row['username']); ?></td>
                                 <td><?php echo $row['permiso_consultar'] ? 'Sí' : 'No'; ?></td>
                                 <td><?php echo $row['permiso_ingresar'] ? 'Sí' : 'No'; ?></td>
-                                <td><?php echo $row['permiso_capturar'] ? 'Sí' : 'No'; ?></td>
+                                <td><?php echo $row['permiso_editar'] ? 'Sí' : 'No'; ?></td>
                                 <td><?php echo $row['permiso_baja'] ? 'Sí' : 'No'; ?></td>
                                 <td><?php echo $row['procesos'] ? 'Sí' : 'No'; ?></td>
                             </tr>
@@ -735,7 +733,7 @@ session_start();
                                     cargarPermisos(userId);
                                 } else {
                                     // Si no hay usuario, limpiar checkboxes
-                                    $("#permiso_consultar, #permiso_ingresar, #permiso_capturar, #permiso_baja, #procesos").prop('checked', false);
+                                    $("#permiso_consultar, #permiso_ingresar, #permiso_editar, #permiso_baja, #procesos").prop('checked', false);
                                 }
                             });
 
@@ -747,13 +745,13 @@ session_start();
                                     // Asegurar que se seleccionen los checkboxes dentro del div con ID 'form-permisos'
                                     $("#form-permisos #permiso_consultar").prop('checked', !!parseInt(response.permiso_consultar));
                                     $("#form-permisos #permiso_ingresar").prop('checked', !!parseInt(response.permiso_ingresar));
-                                    $("#form-permisos #permiso_capturar").prop('checked', !!parseInt(response.permiso_capturar));
+                                    $("#form-permisos #permiso_editar").prop('checked', !!parseInt(response.permiso_editar));
                                     $("#form-permisos #permiso_baja").prop('checked', !!parseInt(response.permiso_baja));
                                     $("#form-permisos #procesos").prop('checked', !!parseInt(response.procesos));
                                 }, "json");
                             }
 
-                            // Manejo del envío del formulario para guardar permisos
+                           // Manejo del envío del formulario para guardar permisos
                             $("#formPermisos").submit(function(e) {
                                 e.preventDefault();
 
@@ -763,10 +761,13 @@ session_start();
                                     return;
                                 }
 
-                                $.post('permisos_handler.php', $(this).serialize() + "&action=guardar_permisos", function() {
+                                $.post('permisos_handler.php', $(this).serialize() + "&action=guardar_permisos", function(response) {
                                     alert("Permisos guardados correctamente");
+                                    // Recargar la página para actualizar la tabla
+                                    window.location.reload();
                                 });
                             });
+
                         });
                     </script>
                 </div>
@@ -822,7 +823,12 @@ session_start();
                 $sql = "SELECT ingresos.*, historiales.area_origen, historiales.area_destino 
                         FROM ingresos 
                         LEFT JOIN historiales ON ingresos.id_nuc = historiales.nuc_id 
-                        $whereClause";
+                        WHERE ingresos.estado = 1"; // Agregar la condición para mostrar solo registros activos
+                
+                if (!empty($whereClauses)) {
+                    $sql .= ' AND ' . implode(' AND ', $whereClauses); // Agregar filtros adicionales si existen
+                }
+                
                 $stmt = $conn->prepare($sql);
                 if (!empty($params)) {
                     $stmt->bind_param($types, ...$params);
@@ -875,36 +881,44 @@ session_start();
                                     <th>Forma Valorada</th>
                                     <th>Área Origen</th>
                                     <th>Área Destino</th>
+                                    <?php if ($permisos['editar']): ?>
+                                        <th>Acciones</th>
+                                    <?php endif; ?>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php
-                                    if ($result->num_rows > 0) {
-                                        while($row = $result->fetch_assoc()) {
-                                            echo "<tr>
-                                                    <td>" . htmlspecialchars($row['fecha'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['nuc'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['nuc_im'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['municipio'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['localidad'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['promovente'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['referencia_pago'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['tipo_predio'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['tipo_tramite'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['direccion'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['denominacion'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['superficie_total'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['sup_has'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['superficie_construida'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['forma_valorada'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['area_origen'] ?? '') . "</td>
-                                                    <td>" . htmlspecialchars($row['area_destino'] ?? '') . "</td>
-                                                </tr>";
+                            <?php
+                                if ($result->num_rows > 0) {
+                                    while ($row = $result->fetch_assoc()) {
+                                        echo "<tr>
+                                                <td>" . htmlspecialchars($row['fecha'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['nuc'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['nuc_im'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['municipio'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['localidad'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['promovente'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['referencia_pago'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['tipo_predio'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['tipo_tramite'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['direccion'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['denominacion'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['superficie_total'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['sup_has'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['superficie_construida'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['forma_valorada'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['area_origen'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['area_destino'] ?? '') . "</td>";
+                                        if ($permisos['editar']) {
+                                            echo "<td>
+                                                    <a href='editarIngresos.php?id=" . htmlspecialchars($row['id_nuc']) . "'>Editar</a>
+                                                </td>";
                                         }
-                                    } else {
-                                        echo "<tr><td colspan='17'>No se encontraron resultados</td></tr>";
+                                        echo "</tr>";
                                     }
-                                ?>
+                                } else {
+                                    echo "<tr><td colspan='18'>No se encontraron resultados</td></tr>";
+                                }
+                            ?>
                             </tbody>
                         </table>
                     </div>
@@ -952,7 +966,7 @@ session_start();
                 }
 
                 // Obtener NUCs disponibles
-                $nucs = $conn->query("SELECT id_nuc, nuc FROM ingresos");
+                $nucs = $conn->query("SELECT id_nuc, nuc FROM ingresos WHERE estado = 1"); // Agregar esta condición
                 $nuc_list = [];
                 while ($row = $nucs->fetch_assoc()) {
                     $nuc_list[] = ['id' => $row['id_nuc'], 'nuc' => $row['nuc']];
@@ -1142,13 +1156,12 @@ session_start();
                             $nuc_baja = trim($_POST['nuc_baja']);
 
                             // Buscar el expediente por NUC
-                            $stmt = $conn->prepare("SELECT * FROM ingresos WHERE nuc = ?");
+                            $stmt = $conn->prepare("SELECT * FROM ingresos WHERE nuc = ? AND estado = 1"); // Agregar esta condición
                             $stmt->bind_param("s", $nuc_baja);
                             $stmt->execute();
                             $result = $stmt->get_result();
                             $expediente = $result->fetch_assoc();
                             $stmt->close();
-
                             if ($expediente) {
                                 // Mostrar información del expediente
                                 echo "<h3>Información del Expediente</h3>";

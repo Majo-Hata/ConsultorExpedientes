@@ -11,7 +11,7 @@ include 'config.php';
         $permisos = $result->fetch_assoc() ?: [
             'permiso_consultar' => 0,
             'permiso_ingresar' => 0,
-            'permiso_capturar' => 0,
+            'permiso_editar' => 0,
             'permiso_baja' => 0,
             'procesos' => 0
         ];
@@ -23,7 +23,7 @@ include 'config.php';
         $user_id = intval($_POST['user_id']);
         $permiso_consultar = isset($_POST['permiso_consultar']) ? 1 : 0;
         $permiso_ingresar = isset($_POST['permiso_ingresar']) ? 1 : 0;
-        $permiso_capturar = isset($_POST['permiso_capturar']) ? 1 : 0;
+        $permiso_editar = isset($_POST['permiso_editar']) ? 1 : 0;
         $permiso_baja = isset($_POST['permiso_baja']) ? 1 : 0;
         $procesos = isset($_POST['procesos']) ? 1 : 0;
     
@@ -35,13 +35,13 @@ include 'config.php';
     
         if ($result->num_rows > 0) {
             // Actualizar permisos existentes
-            $update_query = $conn->prepare("UPDATE permisos SET permiso_consultar = ?, permiso_ingresar = ?, permiso_capturar = ?, permiso_baja = ?, procesos = ? WHERE user_id = ?");
-            $update_query->bind_param("iiiiii", $permiso_consultar, $permiso_ingresar, $permiso_capturar, $permiso_baja, $procesos, $user_id);
+            $update_query = $conn->prepare("UPDATE permisos SET permiso_consultar = ?, permiso_ingresar = ?, permiso_editar = ?, permiso_baja = ?, procesos = ? WHERE user_id = ?");
+            $update_query->bind_param("iiiiii", $permiso_consultar, $permiso_ingresar, $permiso_editar, $permiso_baja, $procesos, $user_id);
             $update_query->execute();
         } else {
             // Insertar nuevos permisos
-            $insert_query = $conn->prepare("INSERT INTO permisos (user_id, permiso_consultar, permiso_ingresar, permiso_capturar, permiso_baja, procesos) VALUES (?, ?, ?, ?, ?, ?)");
-            $insert_query->bind_param("iiiiii", $user_id, $permiso_consultar, $permiso_ingresar, $permiso_capturar, $permiso_baja, $procesos);
+            $insert_query = $conn->prepare("INSERT INTO permisos (user_id, permiso_consultar, permiso_ingresar, permiso_editar, permiso_baja, procesos) VALUES (?, ?, ?, ?, ?, ?)");
+            $insert_query->bind_param("iiiiii", $user_id, $permiso_consultar, $permiso_ingresar, $permiso_editar, $permiso_baja, $procesos);
             $insert_query->execute();
         }
         echo "Permisos guardados correctamente.";

@@ -1,0 +1,172 @@
+--
+-- Base de datos: `direccion`
+--
+CREATE DATABASE IF NOT EXISTS `direccion` ;
+USE `direccion`;
+-- --------------------------------------------------------
+-- Estructura de tabla para la tabla `areas`
+--
+DROP TABLE IF EXISTS `areas`;
+CREATE TABLE IF NOT EXISTS `areas` (
+  `area_id` int NOT NULL AUTO_INCREMENT,
+  `nombre_area` varchar(100) NOT NULL,
+  `descripcion` text,
+  PRIMARY KEY (`area_id`),
+  UNIQUE KEY `nombre_area` (`nombre_area`)
+);
+
+-- --------------------------------------------------------
+-- Estructura de tabla para la tabla `crear_numero`
+--
+DROP TABLE IF EXISTS `crear_numero`;
+CREATE TABLE IF NOT EXISTS `crear_numero` (
+  `id_numero` int NOT NULL AUTO_INCREMENT,
+  `validacion_id` int NOT NULL,
+  `numero_incremental` int NOT NULL,
+  `nuc` varchar(11) NULL,
+  PRIMARY KEY (`id_numero`),
+  UNIQUE KEY `nuc` (`nuc`),
+  KEY `validacion_id` (`validacion_id`)
+);
+
+-- --------------------------------------------------------
+-- Estructura de tabla para la tabla `historiales`
+--
+DROP TABLE IF EXISTS `historiales`;
+CREATE TABLE IF NOT EXISTS `historiales` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nuc_id` int NOT NULL,
+  `area_origen` varchar(50) NOT NULL,
+  `area_destino` varchar(50) NOT NULL,
+  `comentario` text COLLATE utf8mb4_general_ci,
+  `fecha_movimiento` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `usuario_id` int NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `nuc_id` (`nuc_id`),
+  KEY `usuario_id` (`usuario_id`)
+);
+
+-- --------------------------------------------------------
+-- Estructura de tabla para la tabla `ingresos`
+--
+DROP TABLE IF EXISTS `ingresos`;
+CREATE TABLE IF NOT EXISTS `ingresos` (
+  `id_nuc` int NOT NULL AUTO_INCREMENT,
+  `fecha` date NOT NULL,
+  `nuc` varchar(11)NOT NULL,
+  `nuc_im` varchar(11) NOT NULL,
+  `municipio` varchar(100) NOT NULL,
+  `localidad` varchar(100) NOT NULL,
+  `promovente` varchar(100) NOT NULL,
+  `referencia_pago` varchar(50) NOT NULL,
+  `tipo_predio` varchar(25) NOT NULL,
+  `tipo_tramite` varchar(25) NOT NULL,
+  `direccion` varchar(100) NOT NULL,
+  `denominacion` varchar(100) NOT NULL,
+  `superficie_total` decimal(10,2) DEFAULT NULL,
+  `sup_has` varchar(50) DEFAULT NULL,
+  `superficie_construida` double DEFAULT NULL,
+  `forma_valorada` varchar(100) DEFAULT NULL,
+  `procedente` int DEFAULT NULL,
+  `estado` int DEFAULT NULL,
+  `validacion_id` int DEFAULT NULL,
+  `crear_numero_id` int DEFAULT NULL,
+  PRIMARY KEY (`id_nuc`),
+  KEY `validacion_id` (`validacion_id`),
+  KEY `crear_numero_id` (`crear_numero_id`)
+);
+
+-- --------------------------------------------------------
+-- Estructura de tabla para la tabla `municipios`
+--
+DROP TABLE IF EXISTS `municipios`;
+CREATE TABLE IF NOT EXISTS `municipios` (
+  `municipio_id` int NOT NULL AUTO_INCREMENT,
+  `clave_municipio` varchar(10)NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  PRIMARY KEY (`municipio_id`)
+);
+
+-- --------------------------------------------------------
+-- Estructura de tabla para la tabla `permisos`
+--
+DROP TABLE IF EXISTS `permisos`;
+CREATE TABLE IF NOT EXISTS `permisos` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `permiso_consultar` tinyint(1) DEFAULT '0',
+  `permiso_ingresar` tinyint(1) DEFAULT '0',
+  `permiso_editar` tinyint(1) DEFAULT '0',
+  `permiso_baja` tinyint(1) DEFAULT '0',
+  `procesos` tinyint(1) DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`)
+);
+
+-- --------------------------------------------------------
+-- Estructura de tabla para la tabla `roles`
+--
+DROP TABLE IF EXISTS `roles`;
+CREATE TABLE IF NOT EXISTS `roles` (
+  `role_id` int NOT NULL AUTO_INCREMENT,
+  `role_name` varchar(50)  NOT NULL,
+  PRIMARY KEY (`role_id`),
+  UNIQUE KEY `role_name` (`role_name`)
+);
+
+-- --------------------------------------------------------
+-- Estructura de tabla para la tabla `ubicaciones`
+--
+DROP TABLE IF EXISTS `ubicaciones`;
+CREATE TABLE IF NOT EXISTS `ubicaciones` (
+  `id_ubicaciones` int NOT NULL AUTO_INCREMENT,
+  `municipio` varchar(100) DEFAULT NULL,
+  `localidad` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id_ubicaciones`)
+);
+
+-- --------------------------------------------------------
+-- Estructura de tabla para la tabla `users`
+--
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `area_id` int DEFAULT NULL,
+  `role_id` int NOT NULL,
+  `username` varchar(50) NOT NULL,
+  `password` varchar(255)  NOT NULL,
+  `full_name` varchar(100)  NOT NULL,
+  `email` varchar(100) DEFAULT NULL,
+  `status` enum('active','inactive') DEFAULT 'active',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  KEY `fk_users_areas` (`area_id`),
+  KEY `fk_role_id` (`role_id`)
+);
+
+-- --------------------------------------------------------
+-- Estructura de tabla para la tabla `user_roles`
+--
+DROP TABLE IF EXISTS `user_roles`;
+CREATE TABLE IF NOT EXISTS `user_roles` (
+  `user_id` int NOT NULL,
+  `role_id` int NOT NULL,
+  PRIMARY KEY (`user_id`,`role_id`),
+  KEY `role_id` (`role_id`)
+);
+
+-- --------------------------------------------------------
+-- Estructura de tabla para la tabla `validacion`
+--
+DROP TABLE IF EXISTS `validacion`;
+CREATE TABLE IF NOT EXISTS `validacion` (
+  `id_validacion` int NOT NULL AUTO_INCREMENT,
+  `nuc_im` varchar(20) DEFAULT NULL,
+  `curp` varchar(18) NOT NULL,
+  `fecha_consulta` datetime NOT NULL,
+  `municipio` varchar(100) NOT NULL,
+  `tipo_predio` enum('URBANO','RURAL') NOT NULL,
+  `superficie_total` decimal(10,2) DEFAULT NULL,
+  `sup_has` decimal(10,2) DEFAULT NULL,
+  PRIMARY KEY (`id_validacion`)
+);
