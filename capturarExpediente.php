@@ -5,20 +5,21 @@
     // Verificar que existan los datos obligatorios en la sesión
     if (
         !isset($_SESSION['validacion_id']) || 
-        // !isset($_SESSION['nuc']) || 
+        !isset($_SESSION['nuc']) || 
         !isset($_SESSION['nuc_im']) || 
         !isset($_SESSION['municipio_nombre']) || 
         !isset($_SESSION['tipo_predio'])
     ) {
         die("ERROR: Datos incompletos en la sesión. Por favor, inicie el proceso desde el Dashboard.");
     }
-    
+
 
     $mensaje = "";
 
-   // Inicializar las variables con valores de la sesión o predeterminados
-    $superficie_total = $_SESSION['superficie_total'] ?? 0;
-    $sup_has = $_SESSION['sup_has'] ?? 0;
+    // Inicializar variables (opcional)
+    $superficie_total = $_SESSION['superficie_total'] ?? null;
+    $sup_has = $_SESSION['sup_has'] ?? null;
+    $tipo_tramite = $_SESSION['tipo_tramite'] ?? "No definido";
 
     // Procesar el formulario de ingreso (método POST)
     if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -27,14 +28,23 @@
         $nuc_im = $_SESSION['nuc_im'];
         $municipio = $_SESSION['municipio_nombre'];
         $localidad = isset($_POST['localidad']) ? trim($_POST['localidad']) : "";
+        if (!empty($localidad)) {
+            $_SESSION['localidad_guardada'] = $localidad;
+        }
         $promovente = isset($_POST['promovente']) ? trim($_POST['promovente']) : "";
         $referencia_pago = isset($_POST['referencia_pago']) ? trim($_POST['referencia_pago']) : "";
         $tipo_predio = $_SESSION['tipo_predio'];
         $tipo_tramite = isset($_POST['tipo_tramite']) ? trim($_POST['tipo_tramite']) : "";
         $direccion = isset($_POST['direccion']) ? trim($_POST['direccion']) : "";
         $denominacion = isset($_POST['denominacion']) ? trim($_POST['denominacion']) : "";
-        $superficie_total = isset($_POST['superficie_total']) ? floatval($_POST['superficie_total']) : 0;
-        $sup_has = isset($_POST['sup_has']) ? trim($_POST['sup_has']) : "";
+        // Para URBANO: superficie_total
+        $superficie_total = ($_SESSION['tipo_predio'] === 'URBANO'|| $_SESSION['tipo_predio'] === 'SUBURBANO')
+        ? (isset($_POST['superficie_total']) && $_POST['superficie_total'] !== '' ? floatval($_POST['superficie_total']) : null)
+        : null;
+        // Para RURAL: sup_has
+        $sup_has = ($_SESSION['tipo_predio'] === 'RURAL')
+        ? (isset($_POST['sup_has']) && $_POST['sup_has'] !== '' ? floatval($_POST['sup_has']) : null)
+        : null;
         $superficie_construida = isset($_POST['superficie_construida']) ? floatval($_POST['superficie_construida']) : 0;
         $forma_valorada = isset($_POST['forma_valorada']) ? trim($_POST['forma_valorada']) : "";
         $procedente = isset($_POST['procedente']) ? intval($_POST['procedente']) : 0;
@@ -43,31 +53,31 @@
         // Obtener las claves foráneas desde sesión (crear_numero_id puede no existir en algunos casos, en cuyo caso se enviará NULL)
         $validacion_id = $_SESSION['validacion_id'];
         $crear_numero_id = isset($_SESSION['crear_numero_id']) ? $_SESSION['crear_numero_id'] : NULL;
-        
-        $superficie_total = ($_SESSION['tipo_predio'] === 'URBANO') ? (isset($_POST['superficie_total']) ? floatval($_POST['superficie_total']) : 0) : 0;
-        $sup_has = ($_SESSION['tipo_predio'] === 'RURAL') ? (isset($_POST['sup_has']) ? floatval($_POST['sup_has']) : 0) : 0;
 
-        // Inserción en la base de datos
-        $stmt = $conn->prepare("INSERT INTO ingresos 
-            (fecha, nuc, nuc_im, municipio, localidad, promovente, referencia_pago, tipo_predio, tipo_tramite, direccion, denominacion, superficie_total, sup_has, superficie_construida, forma_valorada, procedente, estado, validacion_id, crear_numero_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        if (!$stmt) {
-            die("Error en la preparación de la consulta: " . $conn->error);
-        }
-        $stmt->bind_param(
-            "sssssssssssssssiiss",
-            $fecha, $nuc, $nuc_im, $municipio, $localidad, $promovente, $referencia_pago, 
-            $tipo_predio, $tipo_tramite, $direccion, $denominacion, $superficie_total, 
-            $sup_has, $superficie_construida, $forma_valorada, $procedente, $estado, 
-            $validacion_id, $crear_numero_id
-        );
-        if ($stmt->execute()) {
-            $mensaje = "Ingreso guardado correctamente.";
-        } else {
-            $mensaje = "Error al guardar el ingreso: " . $stmt->error;
-        }
-        $stmt->close();
+        
+    // Inserción en la base de datos
+    $stmt = $conn->prepare("INSERT INTO ingresos 
+        (fecha, nuc, nuc_im, municipio, localidad, promovente, referencia_pago, tipo_predio, tipo_tramite, direccion, denominacion, superficie_total, sup_has, superficie_construida, forma_valorada, procedente, estado, validacion_id, crear_numero_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    if (!$stmt) {
+        die("Error en la preparación de la consulta: " . $conn->error);
     }
+    $stmt->bind_param(
+        "sssssssssssssssiiss",
+        $fecha, $nuc, $nuc_im, $municipio, $localidad, $promovente, $referencia_pago, 
+        $tipo_predio, $tipo_tramite, $direccion, $denominacion, $superficie_total, 
+        $sup_has, $superficie_construida, $forma_valorada, $procedente, $estado, 
+        $validacion_id, $crear_numero_id
+    );
+    if ($stmt->execute()) {
+        $mensaje = "Ingreso guardado correctamente.";
+        // Guardamos la localidad en sesión para usarla en la impresión
+        $_SESSION['localidad_guardada'] = $localidad;
+    } else {
+        $mensaje = "Error al guardar el ingreso: " . $stmt->error;
+    }
+    $stmt->close();
+}
 ?><!DOCTYPE HTML>
 <html lang="es">
 <head>
@@ -128,6 +138,9 @@
                     <h2>Captura de expediente</h2>
                 </header>
                 <?php if (!empty($mensaje)) echo "<p>$mensaje</p>"; ?>
+                <?php if (!empty($mensaje) && strpos($mensaje, "guardado correctamente") !== false): ?>
+                    <button id="btnImprimir" onclick="imprimirFormulario()">Imprimir</button>
+                <?php endif; ?>
                 <form id="formulario" action="capturarExpediente.php" method="post">
                     <!-- Datos precargados (solo lectura) -->
                     <label>NUC:</label>
@@ -140,16 +153,21 @@
                     <input type="text" id="municipio" name="municipio" value="<?php echo htmlspecialchars($_SESSION['municipio_nombre']); ?>" readonly><br>
                     
                     <!-- Localidades se cargarán vía AJAX según el municipio -->
-                    <label for="localidad" class="required">Localidad:</label>
+                    <label>Localidad:</label>
                     <select id="localidad" name="localidad" required>
                         <option value="">Seleccione una localidad</option>
+                        <?php if (!empty($_SESSION['localidad_guardada'])): ?>
+                            <option value="<?php echo htmlspecialchars($_SESSION['localidad_guardada']); ?>" selected>
+                                <?php echo htmlspecialchars($_SESSION['localidad_guardada']); ?>
+                            </option>
+                        <?php endif; ?>
                     </select><br>
-                    
+
                     <label>Promovente:</label>
-                    <input type="text" name="promovente" required><br>
+                    <input type="text" name="promovente" value="<?php echo htmlspecialchars($_POST['promovente'] ?? ''); ?>" required><br>
                     
                     <label>Referencia de Pago:</label>
-                    <input type="text" name="referencia_pago" required><br>
+                    <input type="text" name="referencia_pago" value="<?php echo htmlspecialchars($_POST['referencia_pago'] ?? ''); ?>" required><br>
                     
                     <!-- Tipo de Predio precargado -->
                     <label>Tipo de Predio:</label>
@@ -168,74 +186,71 @@
                     </div><br>
 
                     <label>Superficie Construida:</label>
-                    <input type="number" step="0.01" name="superficie_construida" required><br>
-                    
-                    <label>Tipo de Trámite:</label>
-                    <select name="tipo_tramite" required>
-                        <option value="">Seleccione una opción</option>
-                        <option value="PARTICULAR">Particular</option>
-                        <option value="ESCUELAS">Escuelas</option>
-                        <option value="MIGRANTE">Migrante</option>
-                        <option value="PERSONA JURIDICA">Persona jurídica</option>
-                        <option value="SERVICIO PUBLICO">Servicio público</option>
-                        <option value="DESCONOCIDO">Desconocido</option>
-                    </select>
+                    <input type="number" step="0.01" name="superficie_construida" value="<?php echo htmlspecialchars($_POST['superficie_construida'] ?? ''); ?>" required><br>
+    
+                    <label for="tipo_tramite">Tipo de Trámite:</label>
+                    <input type="text" id="tipo_tramite" name="tipo_tramite" value="<?php echo htmlspecialchars($tipo_tramite); ?>" readonly>
                     <br>
                     
                     <label>Dirección:</label>
-                    <input type="text" name="direccion" required><br>
+                    <input type="text" name="direccion" value="<?php echo htmlspecialchars($_POST['direccion'] ?? ''); ?>" required><br>
                     
                     <label>Denominación:</label>
-                    <input type="text" name="denominacion" required><br>
+                    <input type="text" name="denominacion" value="<?php echo htmlspecialchars($_POST['denominacion'] ?? ''); ?>" required><br>
                     
                     <label>Forma Valorada:</label>
-                    <input type="text" name="forma_valorada" required><br>
+                    <input type="text" name="forma_valorada" value="<?php echo htmlspecialchars($_POST['forma_valorada'] ?? ''); ?>" required><br>
                     
                     <label for="procedente">Procedente:</label>
                     <select name="procedente" id="procedente">
-                        <option value="1">Procedente</option>
-                        <option value="0">No Procedente</option>
+                        <option value="1" <?php echo (isset($_POST['procedente']) && $_POST['procedente'] == '1') ? 'selected' : ''; ?>>Procedente</option>
+                        <option value="0" <?php echo (isset($_POST['procedente']) && $_POST['procedente'] == '0') ? 'selected' : ''; ?>>No Procedente</option>
                     </select>
                     <br>
                     
-                    <button type="submit">Guardar</button>
+                    <button id="btnImprimir" class="no-print" onclick="imprimirFormulario()">Imprimir</button>
                 </form>
             </div>
         </section>
+        <script>
+        console.log("Localidad guardada:", localidadGuardada);
+        console.log("Formulario clonado:", formularioClone.outerHTML);
+        </script>
     </div>
     <script>
-        // Función para cargar localidades vía AJAX según el municipio precargado
+        // Suponiendo que ya tienes definido un valor en PHP
+        const localidadSeleccionada = "<?php echo isset($_SESSION['localidad_guardada']) ? addslashes($_SESSION['localidad_guardada']) : ''; ?>";
+
         function cargarLocalidades() {
             const municipio = document.getElementById('municipio').value;
-            console.log("Municipio seleccionado:", municipio); // 👈 Verifica si el municipio se está enviando
-
             const localidadSelect = document.getElementById('localidad');
+            localidadSelect.innerHTML = '<option value="">Seleccione una localidad</option>';
             if (municipio) {
                 fetch(`obtener_localidades.php?municipio=${encodeURIComponent(municipio)}`)
                     .then(response => response.json())
                     .then(data => {
-                        console.log("Datos recibidos:", data); // 👈 Verifica si se están recibiendo datos
-
-                        localidadSelect.innerHTML = '<option value="">Seleccione una localidad</option>';
                         data.forEach(item => {
                             const option = document.createElement('option');
                             option.value = item.localidad;
                             option.textContent = item.localidad;
+                            // Si coincide con la localidad previamente seleccionada, márcala
+                            if (item.localidad === localidadSeleccionada) {
+                                option.selected = true;
+                            }
                             localidadSelect.appendChild(option);
                         });
                     })
                     .catch(error => console.error('Error al cargar localidades:', error));
-            } else {
-                localidadSelect.innerHTML = '<option value="">Seleccione una localidad</option>';
             }
         }
 
-        // Cargar localidades al cargar la página
-        document.addEventListener("DOMContentLoaded", function() {
-            cargarLocalidades();
-        });
+        document.addEventListener("DOMContentLoaded", cargarLocalidades);
 
-                
+            // Cargar localidades al cargar la página
+            document.addEventListener("DOMContentLoaded", function() {
+                cargarLocalidades();
+            });
+
         // Validar que se haya seleccionado una localidad antes de enviar
         document.getElementById('formulario').addEventListener('submit', function(e) {
             const localidad = document.getElementById('localidad').value;
@@ -258,7 +273,7 @@
             campoSupHas.classList.add('hidden');
 
             // Muestra el campo correspondiente
-            if (tipoPredio === 'URBANO') {
+            if (tipoPredio === 'URBANO' || tipoPredio === 'SUBURBANO') {
                 console.log("Mostrando campo de Superficie Total");
                 campoSuperficieTotal.classList.remove('hidden');
             } else if (tipoPredio === 'RURAL') {
@@ -270,7 +285,81 @@
         document.addEventListener("DOMContentLoaded", function() {
             mostrarCampoSuperficie();
         });
-    </script>
+
+    // Función de impresión
+   function imprimirFormulario() {
+    const localidadGuardada = "<?php echo isset($_SESSION['localidad_guardada']) ? addslashes($_SESSION['localidad_guardada']) : ''; ?>";
+    const selectLocalidad = formularioClone.querySelector('#localidad');
+    if (selectLocalidad) {
+        const inputLocalidad = document.createElement('input');
+        inputLocalidad.type = 'text';
+        inputLocalidad.name = 'localidad';
+        inputLocalidad.value = localidadGuardada || "No definida";
+        inputLocalidad.readOnly = true;
+        inputLocalidad.style.width = '95%';
+        inputLocalidad.style.fontSize = '12px';
+        inputLocalidad.style.padding = '3px';
+        inputLocalidad.style.marginBottom = '5px';
+
+        selectLocalidad.parentNode.replaceChild(inputLocalidad, selectLocalidad);
+    }
+
+    // Abrir la ventana para impresión
+    const ventanaImpresion = window.open('', '_blank');
+    ventanaImpresion.document.write(`
+        <html>
+            <head>
+                <title>Imprimir Formulario</title>
+                <link rel="stylesheet" href="assets/css/main.css" />
+                <style>
+                    @media print {
+                        body {
+                            margin: 0;
+                            padding: 0;
+                            font-family: Arial, sans-serif;
+                            font-size: 12px;
+                            line-height: 1.2;
+                        }
+                        #formulario {
+                            width: 100%;
+                            margin: 0 auto;
+                            padding: 10px;
+                            box-sizing: border-box;
+                        }
+                        input, select, label {
+                            display: block;
+                            width: 95%;
+                            font-size: 12px !important;
+                            padding: 3px !important;
+                            margin-bottom: 5px !important;
+                            height: auto;
+                        }
+                        h2, h3 {
+                            font-size: 14px;
+                            margin-bottom: 10px;
+                        }
+                        button, .no-print {
+                            display: none !important; /* Ocultar todos los botones y elementos con clase no-print */
+                        }
+                        @page {
+                            size: A4;
+                            margin: 10mm;
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                <p>Ingreso guardado correctamente.</p>
+                ${formularioClone.outerHTML}
+            </body>
+        </html>
+    `);
+    ventanaImpresion.document.close();
+    ventanaImpresion.print();
+}
+</script>
+
+
 </body>
 </html>
 

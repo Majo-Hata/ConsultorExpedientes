@@ -1,12 +1,4 @@
 <?php
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'domain' => 'localhost',
-    'secure' => false,
-    'httponly' => true,
-    'samesite' => 'Lax'
-]);
 session_start();
    
     include 'config.php';
@@ -107,6 +99,7 @@ session_start();
         $curp = isset($_POST['curp']) ? trim($_POST['curp']) : "";
         $municipio_id = isset($_POST['municipio_id']) ? intval($_POST['municipio_id']) : 0;
         $tipo_predio = isset($_POST['tipo_predio']) ? strtolower($_POST['tipo_predio']) : "";
+        $tipo_tramite = isset($_POST['tipo_tramite']) ? trim($_POST['tipo_tramite']) : "";
         $superficie_total = isset($_POST['superficie_total']) ? floatval($_POST['superficie_total']) : 0;
         $sup_has = isset($_POST['sup_has']) ? floatval($_POST['sup_has']) : 0;
         $nuc_im = isset($_POST['nuc_im']) ? trim($_POST['nuc_im']) : "";
@@ -120,95 +113,150 @@ session_start();
         $municipio_nombre = $municipio_row['nombre'] ?? '';
         $stmt_mun->close();
     
-        if (empty($curp) || empty($municipio_nombre) || empty($tipo_predio) || empty($nuc_im)) {
-            //$mensaje = "Todos los campos son obligatorios.";
+        if (empty($curp) || empty($municipio_nombre) || empty($tipo_predio) || empty($tipo_tramite) || empty($nuc_im)) {
+            $mensaje = "Todos los campos son obligatorios. Por favor, complete: ";
+            if (empty($curp)) $mensaje .= "CURP, ";
+            if (empty($municipio_nombre)) $mensaje .= "Municipio, ";
+            if (empty($tipo_predio)) $mensaje .= "Tipo de Predio, ";
+            if (empty($tipo_tramite)) $mensaje .= "Tipo de Trámite, ";
+            if (empty($nuc_im)) $mensaje .= "NUC_IM, ";
+            $mensaje = rtrim($mensaje, ", ") . ".";
         } else {
-            // Verificar registros previos de validación para este CURP
-            $stmt_validacion = $conn->prepare("
-                SELECT id_validacion, tipo_predio, SUM(sup_has) AS total_sup_has, COUNT(*) AS total_predios 
-                FROM validacion 
-                WHERE curp=? 
-                GROUP BY tipo_predio
-            ");
-            $stmt_validacion->bind_param("s", $curp);
-            $stmt_validacion->execute();
-            $result_validacion = $stmt_validacion->get_result();
-
             $permitido = true;
-            $total_urbanos = 0;
-            $total_sup_has_rural = 0;
-            $id_validacion = 0;
-            
-            while ($row = $result_validacion->fetch_assoc()) {
-                if (strcasecmp($row['tipo_predio'], 'URBANO') == 0) {
-                    $total_urbanos = $row['total_predios'];
-                }
-                if (strcasecmp($row['tipo_predio'], 'RURAL') == 0) {
-                    $total_sup_has_rural = $row['total_sup_has'];
-                }
-            }
-            $stmt_validacion->close();
-    
-            // Reglas de validación
-            if (($tipo_predio === "urbano" && $total_urbanos >= 1) || 
-                ($tipo_predio === "rural" && ($total_sup_has_rural + $sup_has) > 6)) {
-                $permitido = false;
-            }
-                
-            if ($permitido) {
-                $fecha_consulta = date("Y-m-d H:i:s");
-                $tipo_predio_upper = strtoupper($tipo_predio);
-    
-                // Verificar si ya existe un registro en validacion con estos datos
-                $stmt_check_validacion = $conn->prepare("
-                    SELECT id_validacion FROM validacion 
-                    WHERE curp = ? AND municipio = ? AND tipo_predio = ? AND nuc_im = ?
-                ");
-                $stmt_check_validacion->bind_param("ssss", $curp, $municipio_nombre, $tipo_predio_upper, $nuc_im);
-                $stmt_check_validacion->execute();
-                $stmt_check_validacion->bind_result($id_validacion);
-                $stmt_check_validacion->fetch();
-                $stmt_check_validacion->close();
-    
-                if (empty($id_validacion)) {
-                    // Determinar qué campo usar según el tipo de predio
-                    $superficie_total = ($tipo_predio === "urbano") ? $superficie_total : null;
-                    $sup_has = ($tipo_predio === "rural") ? $sup_has : null;
+            // Si el tipo de trámite es "SERVICIO PUBLICO", omitir validaciones
+            if ($tipo_tramite === "SERVICIO PUBLICO") {
+                $stmt_check = $conn->prepare("SELECT id_validacion FROM validacion WHERE nuc_im = ? OR curp = ?");
+                $stmt_check->bind_param("ss", $nuc_im, $curp);
+                $stmt_check->execute();
+                $result_check = $stmt_check->get_result();
+                if ($result_check->num_rows > 0) {
+                    $mensaje = "Ya existe un registro con el mismo NUC_IM o CURP.";
+                } else {
+                $permitido = true; // Saltar validaciones
+                // Configurar las variables de sesión necesarias para generar_nuc.php
+                $_SESSION['curp_validado'] = $curp;
+                $_SESSION['municipio_id'] = $municipio_id;
+                $_SESSION['nuc_im'] = $nuc_im;
+                $_SESSION['municipio_nombre'] = $municipio_nombre;
+                $_SESSION['tipo_predio'] = strtoupper($tipo_predio);
+                $_SESSION['tipo_tramite'] = $tipo_tramite;
 
+                // Insertar un registro en la tabla validacion para mantener consistencia
+                $fecha_consulta = date("Y-m-d H:i:s");
+                $stmt_insert_validacion = $conn->prepare("
+                    INSERT INTO validacion (nuc_im, curp, fecha_consulta, municipio, tipo_predio, tipo_tramite, superficie_total, sup_has) 
+                    VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)
+                ");
+                $stmt_insert_validacion->bind_param(
+                    "ssssss",
+                    $nuc_im,
+                    $curp,
+                    $fecha_consulta,
+                    $municipio_nombre,
+                    strtoupper($tipo_predio),
+                    $tipo_tramite
+                );
+
+                if ($stmt_insert_validacion->execute()) {
+                    $id_validacion = $stmt_insert_validacion->insert_id;
+                    $_SESSION['validacion_id'] = $id_validacion;
+
+                    // Redirigir a generar_nuc.php
+                    header("Location: generar_nuc.php");
+                    exit();
+                } else {
+                    $mensaje = "Error al insertar en validacion: " . $stmt_insert_validacion->error;
+                }
+                $stmt_insert_validacion->close();
+                }
+            } else {
+                // Verificar registros previos de validación para este CURP
+                $stmt_validacion = $conn->prepare("
+                    SELECT id_validacion, tipo_predio, SUM(sup_has) AS total_sup_has, COUNT(*) AS total_predios 
+                    FROM validacion 
+                    WHERE curp=? 
+                    GROUP BY tipo_predio
+                ");
+                $stmt_validacion->bind_param("s", $curp);
+                $stmt_validacion->execute();
+                $result_validacion = $stmt_validacion->get_result();
+
+                $total_urbanos = 0;
+                $total_sup_has_rural = 0;
+
+                while ($row = $result_validacion->fetch_assoc()) {
+                    if (strcasecmp($row['tipo_predio'], 'URBANO') == 0 || strcasecmp($row['tipo_predio'], 'SUBURBANO') == 0) {
+                        $total_urbanos = $row['total_predios'];
+                    }
+                    if (strcasecmp($row['tipo_predio'], 'RURAL') == 0) {
+                        $total_sup_has_rural = $row['total_sup_has'];
+                    }
+                }
+                $stmt_validacion->close();
+
+                // Reglas de validación
+                if ((($tipo_predio === "urbano" || $tipo_predio === "suburbano") && $total_urbanos >= 1) || 
+                    ($tipo_predio === "rural" && ($total_sup_has_rural + $sup_has) > 6)) {
+                    $permitido = false;
+                }
+            }
+
+            if ($permitido) {
+                // Verificar duplicados antes de insertar
+                $stmt_check = $conn->prepare("SELECT id_validacion FROM validacion WHERE nuc_im = ? OR curp = ?");
+                $stmt_check->bind_param("ss", $nuc_im, $curp);
+                $stmt_check->execute();
+                $result_check = $stmt_check->get_result();
+                if ($result_check->num_rows > 0) {
+                    $mensaje = "Ya existe un registro con el mismo NUC_IM o CURP.";
+                } else {
+                    // Insertar en la tabla validacion
+                    $fecha_consulta = date("Y-m-d H:i:s");
+                    $tipo_predio_upper = strtoupper($tipo_predio);
+            
+                    // Determinar qué campo usar según el tipo de predio
+                    $superficie_total = ($tipo_predio === "urbano" || $tipo_predio === "suburbano") ? $superficie_total : null;
+                    $sup_has = ($tipo_predio === "rural") ? $sup_has : null;
+            
                     $stmt_insert_validacion = $conn->prepare("
-                        INSERT INTO validacion (nuc_im, curp, fecha_consulta, municipio, tipo_predio, superficie_total, sup_has) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO validacion (nuc_im, curp, fecha_consulta, municipio, tipo_predio, tipo_tramite, superficie_total, sup_has) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ");
                     $stmt_insert_validacion->bind_param(
-                        "sssssdd",
+                        "ssssssdd",
                         $nuc_im,
                         $curp,
                         $fecha_consulta,
                         $municipio_nombre,
                         $tipo_predio_upper,
+                        $tipo_tramite,
                         $superficie_total,
                         $sup_has
                     );
-                    $stmt_insert_validacion->execute();
-                    $id_validacion = $stmt_insert_validacion->insert_id;
+            
+                    if ($stmt_insert_validacion->execute()) {
+                        $id_validacion = $stmt_insert_validacion->insert_id;
+            
+                        // Guardar datos en sesión
+                        $_SESSION['curp_validado'] = $curp;
+                        $_SESSION['municipio_id'] = $municipio_id;
+                        $_SESSION['nuc_im'] = $nuc_im;
+                        $_SESSION['municipio_nombre'] = $municipio_nombre;
+                        $_SESSION['tipo_predio'] = $tipo_predio_upper;
+                        $_SESSION['tipo_tramite'] = $tipo_tramite;
+                        $_SESSION['validacion_id'] = $id_validacion;
+                        $_SESSION['superficie_total'] = $superficie_total;
+                        $_SESSION['sup_has'] = $sup_has;
+            
+                        // Redirigir a generar_nuc.php
+                        header("Location: generar_nuc.php");
+                        exit();
+                    } else {
+                        $mensaje = "Error al insertar en validacion: " . $stmt_insert_validacion->error;
+                    }
                     $stmt_insert_validacion->close();
-                    exit();
                 }
-                
-               // Guardar datos en sesión para los siguientes pasos
-                $_SESSION['curp_validado']    = $curp;
-                $_SESSION['municipio_id']      = $municipio_id;
-                $_SESSION['nuc_im']           = $nuc_im;
-                $_SESSION['municipio_nombre']  = $municipio_nombre;
-                $_SESSION['tipo_predio']       = $tipo_predio_upper;
-                $_SESSION['validacion_id']     = $id_validacion;
-                $_SESSION['superficie_total'] = ($tipo_predio === "urbano") ? $superficie_total : null;
-                $_SESSION['sup_has'] = ($tipo_predio === "rural") ? $sup_has : null;
-
-                header("Location: generar_nuc.php");
-                exit();
-            } else {
-                $mensaje = "No cumple con los requisitos.";
+                $stmt_check->close();
             }
         }
     }
@@ -926,7 +974,6 @@ session_start();
             </section>
             <?php endif; ?>
             <!-- Seccion de asignar movimiento -->
-            <?php if ($permisos['procesos']): ?>
             <?php
                 if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $nuc_id = isset($_POST['nuc_id']) ? intval($_POST['nuc_id']) : null;
@@ -972,7 +1019,7 @@ session_start();
                     $nuc_list[] = ['id' => $row['id_nuc'], 'nuc' => $row['nuc']];
                 }
             ?>
-
+            <?php if ($permisos['procesos']): ?>
             <section id="asignarMovimiento" class="four">
                 <div class="container">
                     <header>
@@ -1008,7 +1055,7 @@ session_start();
                     </form>
                 </div>
             </section>
-
+            <?php endif; ?>
             <script>
                 document.addEventListener("DOMContentLoaded", function () {
                     const nucInput = document.getElementById("nuc_input");
@@ -1069,7 +1116,7 @@ session_start();
                     fetchHistorial(); // Cargar los últimos 10 movimientos al cargar la página
                 });
             </script>
-            <?php endif; ?>
+
             <!-- Seccion de pre-registro -->
             <?php if ($permisos['ingresar']): ?>
             <section id="validacion" class="two">
@@ -1088,16 +1135,16 @@ session_start();
                             campoSupHas.classList.add('hidden');
 
                             // Muestra el campo correspondiente según el tipo de predio seleccionado
-                            if (tipoPredio === 'URBANO') {
+                            if (tipoPredio === 'URBANO' || tipoPredio === 'SUBURBANO') {
                                 campoSuperficieTotal.classList.remove('hidden');
                             } else if (tipoPredio === 'RURAL') {
                                 campoSupHas.classList.remove('hidden');
                             }
                         }
                     </script>
-                    <h3>Validar CURP</h3>
-                    <form method="POST" action="dashboard.php#validacion">
-                        <label>CURP:</label>
+                    <h3>Validación</h3>
+                    <form method="POST" action="#validacion">
+                        <label>CURP O RFC:</label>
                         <input type="text" name="curp" required><br>
                         
                         <label>Municipio:</label>
@@ -1109,11 +1156,23 @@ session_start();
                                 </option>
                             <?php endwhile; ?>
                         </select><br>
+
+                        <label>Tipo de Trámite:</label>
+                        <select name="tipo_tramite" required>
+                            <option value="">Seleccione una opción</option>
+                            <option value="PARTICULAR">Particular</option>
+                            <option value="ESCUELAS">Escuelas</option>
+                            <option value="MIGRANTE">Migrante</option>
+                            <option value="PERSONA JURIDICA">Persona jurídica</option>
+                            <option value="SERVICIO PUBLICO">Servicio público</option>
+                            <option value="DESCONOCIDO">Desconocido</option>
+                        </select><br>
                         
                         <label for="tipo_predio">Tipo de Predio:</label>
                         <select id="tipo_predio" name="tipo_predio" required onchange="mostrarCampoSuperficie()">
                             <option value="">Seleccione una opción</option>
                             <option value="URBANO">Urbano</option>
+                            <option value="SUBURBANO">Suburbano</option>
                             <option value="RURAL">Rural</option>
                         </select>
 

@@ -12,7 +12,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
      // Permisos
      $permiso_consultar = isset($_POST['permiso_consultar']) ? 1 : 0;
      $permiso_ingresar = isset($_POST['permiso_ingresar']) ? 1 : 0;
-     $permiso_capturar = isset($_POST['permiso_capturar']) ? 1 : 0;
+     $permiso_editar = isset($_POST['permiso_editar']) ? 1 : 0;
      $permiso_baja = isset($_POST['permiso_baja']) ? 1 : 0;
      $procesos = isset($_POST['procesos']) ? 1 : 0;
  
@@ -34,8 +34,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt->close();
 
         // Inserta en la tabla `permisos`
-        $stmt = $conn->prepare("INSERT INTO permisos (user_id, permiso_consultar, permiso_ingresar, permiso_capturar, permiso_baja, procesos) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("iiiiii", $user_id, $permiso_consultar, $permiso_ingresar, $permiso_capturar, $permiso_baja, $procesos);
+        $stmt = $conn->prepare("INSERT INTO permisos (user_id, permiso_consultar, permiso_ingresar, permiso_editar, permiso_baja, procesos) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("iiiiii", $user_id, $permiso_consultar, $permiso_ingresar, $permiso_editar, $permiso_baja, $procesos);
         $stmt->execute();
         $stmt->close();
 
@@ -64,7 +64,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     $permiso_consultar = isset($_POST['permiso_consultar']) ? 1 : 0;
     $permiso_ingresar = isset($_POST['permiso_ingresar']) ? 1 : 0;
-    $permiso_capturar = isset($_POST['permiso_capturar']) ? 1 : 0;
+    $permiso_editar = isset($_POST['permiso_editar']) ? 1 : 0;
     $permiso_baja = isset($_POST['permiso_baja']) ? 1 : 0;
 
     $stmt = $conn->prepare("INSERT INTO users (username, password, full_name, email, area_id, role_id) VALUES (?, ?, ?, ?, ?, ?)");
@@ -73,8 +73,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($stmt->execute()) {
         $user_id = $stmt->insert_id;
 
-        $stmt = $conn->prepare("INSERT INTO permisos (user_id, permiso_consultar, permiso_ingresar, permiso_capturar, permiso_baja) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("iiiii", $user_id, $permiso_consultar, $permiso_ingresar, $permiso_capturar, $permiso_baja);
+        $stmt = $conn->prepare("INSERT INTO permisos (user_id, permiso_consultar, permiso_ingresar, permiso_editar, permiso_baja) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("iiiii", $user_id, $permiso_consultar, $permiso_ingresar, $permiso_editar, $permiso_baja);
         $stmt->execute();
 
         header("Location: dashboard.php#administrarUsuarios" . urlencode("Usuario creado con éxito."));
