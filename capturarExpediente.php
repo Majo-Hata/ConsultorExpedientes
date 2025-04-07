@@ -38,10 +38,30 @@
         $superficie_total = ($_SESSION['tipo_predio'] === 'URBANO' || $_SESSION['tipo_predio'] === 'SUBURBANO')
             ? (isset($_POST['superficie_total']) && $_POST['superficie_total'] !== '' ? floatval($_POST['superficie_total']) : null)
             : null;
-        // Para RUSTICO: sup_has
-        $sup_has = ($_SESSION['tipo_predio'] === 'RUSTICO')
-            ? (isset($_POST['sup_has']) && $_POST['sup_has'] !== '' ? floatval($_POST['sup_has']) : null)
-            : null;
+        // Obtener el valor de sup_has desde la sesión o la base de datos
+        if ($_SESSION['tipo_predio'] === 'RUSTICO') {
+            if (isset($_SESSION['sup_has'])) {
+                // Usar el valor de la sesión si está disponible
+                $sup_has = $_SESSION['sup_has'];
+            } else {
+                // Consultar la base de datos si no está en la sesión
+                $stmt = $conn->prepare("SELECT sup_has FROM validacion WHERE id_validacion = ?");
+                $stmt->bind_param("i", $_SESSION['validacion_id']);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $row = $result->fetch_assoc();
+                $sup_has = $row['sup_has'] ?? null;
+                $stmt->close();
+            }
+
+            // Formatear el valor de sup_has al formato 00-00-00.00
+            $sup_has_formatted = formatSupHas($sup_has);
+        } else {
+            $sup_has_formatted = null;
+        }
+
+        // Formatear sup_has para la tabla ingresos
+        $sup_has_formatted = ($_SESSION['tipo_predio'] === 'RUSTICO') ? formatSupHas($sup_has) : null;
         $superficie_construida = isset($_POST['superficie_construida']) ? floatval($_POST['superficie_construida']) : 0;
         $procedente = isset($_POST['procedente']) ? intval($_POST['procedente']) : 0;
         $estado = 1; // Estado por defecto (1 = Activo)
@@ -71,7 +91,7 @@
                 "ssssssssssssssiiss",
                 $fecha, $nuc, $nuc_im, $municipio, $localidad, $promovente, $referencia_pago, 
                 $tipo_predio, $tipo_tramite, $direccion, $denominacion, $superficie_total, 
-                $sup_has, $superficie_construida, $procedente, $estado, 
+                $sup_has_formatted, $superficie_construida, $procedente, $estado, 
                 $validacion_id, $crear_numero_id
             );
             if ($stmt->execute()) {
@@ -96,6 +116,27 @@
             $stmt->close();
         }
         $stmt_check->close();
+    }
+
+    function formatSupHas($value) {
+        // Asegurarse de que el valor sea un número válido
+        if (!is_numeric($value)) {
+            return '00-00-00.00'; // Valor por defecto si no es válido
+        }
+
+        // Convertir el valor a un número flotante con 2 decimales
+        $value = number_format($value, 2, '.', '');
+
+        // Separar la parte entera y la parte decimal
+        $parts = explode('.', $value);
+        $integerPart = str_pad($parts[0], 6, '0', STR_PAD_LEFT); // Asegurar que tenga al menos 6 dígitos
+        $decimalPart = $parts[1] ?? '00'; // Asegurar que tenga 2 decimales
+
+        // Dividir la parte entera en grupos de 2 dígitos
+        $formatted = substr($integerPart, 0, 2) . '-' . substr($integerPart, 2, 2) . '-' . substr($integerPart, 4, 2);
+
+        // Agregar la parte decimal
+        return $formatted . '.' . $decimalPart;
     }
 ?>
 <!DOCTYPE HTML>
@@ -206,8 +247,8 @@
 
                     <!-- Campo para Superficie en Hectáreas (RUSTICO) -->
                     <div id="campo_sup_has" class="hidden">
-                        <label for="sup_has">Superficie (hectáreas):</label>
-                        <input type="number" id="sup_has" name="sup_has" min="0" step="0.01" value="<?php echo htmlspecialchars($sup_has ?? ''); ?>">
+                        <label for="sup_has">Superficie en Hectáreas:</label>
+                        <input type="text" id="sup_has" name="sup_has" oninput="formatearSupHas(this)" placeholder="00-00-00.00" value="<?php echo htmlspecialchars(formatSupHas($sup_has ?? 0)); ?>">
                     </div><br>
 
                     <label>Superficie Construida:</label>
@@ -243,31 +284,32 @@
             const municipio = document.getElementById('municipio').value;
             const localidadSelect = document.getElementById('localidad');
             localidadSelect.innerHTML = '<option value="">Seleccione una localidad</option>';
+
             if (municipio) {
                 fetch(`obtener_localidades.php?municipio=${encodeURIComponent(municipio)}`)
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Error al cargar localidades');
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         data.forEach(item => {
                             const option = document.createElement('option');
                             option.value = item.localidad;
                             option.textContent = item.localidad;
-                            // Si coincide con la localidad previamente seleccionada, márcala
-                            if (item.localidad === localidadSeleccionada) {
-                                option.selected = true;
-                            }
                             localidadSelect.appendChild(option);
                         });
                     })
-                    .catch(error => console.error('Error al cargar localidades:', error));
+                    .catch(error => {
+                        console.error('Error al cargar localidades:', error);
+                        alert('Hubo un problema al cargar las localidades. Intente nuevamente.');
+                    });
             }
         }
 
+        // Ejecutar la función al cargar la página
         document.addEventListener("DOMContentLoaded", cargarLocalidades);
-
-            // Cargar localidades al cargar la página
-            document.addEventListener("DOMContentLoaded", function() {
-                cargarLocalidades();
-            });
 
         // Validar que se haya seleccionado una localidad antes de enviar
         document.getElementById('formulario').addEventListener('submit', function(e) {
@@ -299,6 +341,31 @@
                 campoSupHas.classList.remove('hidden');
             }
         }
+
+        function formatearSupHas(input) {
+            // Eliminar cualquier carácter que no sea un número o un punto decimal
+            let valor = input.value.replace(/[^0-9.]/g, '');
+
+            // Separar la parte entera y la parte decimal
+            let partes = valor.split('.');
+            let parteEntera = partes[0] || '';
+            let parteDecimal = partes[1] || '';
+
+            // Asegurar que la parte entera tenga exactamente 6 dígitos
+            parteEntera = parteEntera.padStart(6, '0');
+
+            // Dividir la parte entera en grupos de 2 dígitos
+            let formateado = parteEntera.slice(0, 2) + '-' + parteEntera.slice(2, 4) + '-' + parteEntera.slice(4, 6);
+
+            // Agregar la parte decimal (máximo 2 dígitos)
+            if (parteDecimal.length > 0) {
+                formateado += '.' + parteDecimal.slice(0, 2);
+            }
+
+            // Actualizar el valor del campo de entrada
+            input.value = formateado;
+        }
+
         // Ejecutar la función al cargar la página
         document.addEventListener("DOMContentLoaded", function() {
             mostrarCampoSuperficie();

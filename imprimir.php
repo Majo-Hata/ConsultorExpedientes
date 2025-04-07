@@ -1,9 +1,37 @@
 <?php
 session_start();
+include 'config.php';
 
-if (!isset($_SESSION['nuc'])) {
-    die("ERROR: No hay datos disponibles para imprimir.");
+// Función para formatear sup_has
+function formatSupHas($value) {
+    if (!is_numeric($value)) {
+        return '00-00-00.00'; // Valor por defecto si no es válido
+    }
+
+    $value = number_format($value, 2, '.', '');
+    $parts = explode('.', $value);
+    $integerPart = str_pad($parts[0], 6, '0', STR_PAD_LEFT);
+    $decimalPart = $parts[1] ?? '00';
+
+    $formatted = substr($integerPart, 0, 2) . '-' . substr($integerPart, 2, 2) . '-' . substr($integerPart, 4, 2);
+    return $formatted . '.' . $decimalPart;
 }
+
+// Obtener los datos de la sesión
+$nuc = $_SESSION['nuc'] ?? '';
+$nuc_im = $_SESSION['nuc_im'] ?? '';
+$municipio = $_SESSION['municipio_nombre'] ?? '';
+$localidad = $_SESSION['localidad'] ?? 'N/A';
+$promovente = $_SESSION['promovente'] ?? 'N/A';
+$referencia_pago = $_SESSION['referencia_pago'] ?? 'N/A';
+$tipo_predio = $_SESSION['tipo_predio'] ?? '';
+$superficie_total = $_SESSION['superficie_total'] ?? 'N/A';
+$sup_has = isset($_SESSION['sup_has']) ? formatSupHas($_SESSION['sup_has']) : 'N/A';
+$superficie_construida = $_SESSION['superficie_construida'] ?? 'N/A';
+$tipo_tramite = $_SESSION['tipo_tramite'] ?? 'No definido';
+$direccion = $_SESSION['direccion'] ?? 'N/A';
+$denominacion = $_SESSION['denominacion'] ?? 'N/A';
+$procedente = isset($_SESSION['procedente']) ? ($_SESSION['procedente'] ? 'Procedente' : 'No Procedente') : 'N/A';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -96,62 +124,62 @@ if (!isset($_SESSION['nuc'])) {
     <div id="formulario">
         <div class="campo">
             <label>NUC:</label>
-            <div><?php echo $_SESSION['nuc']; ?></div>
+            <div><?php echo htmlspecialchars($nuc); ?></div>
         </div>
         <div class="campo">
             <label>NUC_IM:</label>
-            <div><?php echo $_SESSION['nuc_im']; ?></div>
+            <div><?php echo htmlspecialchars($nuc_im); ?></div>
         </div>
         <div class="campo">
             <label>Municipio:</label>
-            <div><?php echo $_SESSION['municipio_nombre']; ?></div>
+            <div><?php echo htmlspecialchars($municipio); ?></div>
         </div>
         <div class="campo">
             <label>Localidad:</label>
-            <div><?php echo $_SESSION['localidad'] ?? 'N/A'; ?></div>
+            <div><?php echo htmlspecialchars($localidad); ?></div>
         </div>
         <div class="campo">
             <label>Promovente:</label>
-            <div><?php echo $_SESSION['promovente'] ?? 'N/A'; ?></div>
+            <div><?php echo htmlspecialchars($promovente); ?></div>
         </div>
         <div class="campo">
             <label>Referencia de Pago:</label>
-            <div><?php echo $_SESSION['referencia_pago'] ?? 'N/A'; ?></div>
+            <div><?php echo htmlspecialchars($referencia_pago); ?></div>
         </div>
         <div class="campo">
             <label>Tipo de Predio:</label>
-            <div><?php echo $_SESSION['tipo_predio']; ?></div>
+            <div><?php echo htmlspecialchars($tipo_predio); ?></div>
         </div>
-        <div class="campo">
-            <label>Tipo de Trámite:</label>
-            <div><?php echo $_SESSION['tipo_tramite'] ?? 'No definido'; ?></div>
-        </div>
-        <div class="campo">
-            <label>Dirección:</label>
-            <div><?php echo $_SESSION['direccion'] ?? 'N/A'; ?></div>
-        </div>
-        <div class="campo">
-            <label>Denominación:</label>
-            <div><?php echo $_SESSION['denominacion'] ?? 'N/A'; ?></div>
-        </div>
-        <?php if(isset($_SESSION['tipo_predio']) && (strtoupper($_SESSION['tipo_predio']) == 'URBANO' || strtoupper($_SESSION['tipo_predio']) == 'SUBURBANO')): ?>
+        <?php if ($tipo_predio === 'URBANO' || $tipo_predio === 'SUBURBANO'): ?>
         <div class="campo">
             <label>Superficie Total (m²):</label>
-            <div><?php echo $_SESSION['superficie_total'] ?? 'N/A'; ?></div>
+            <div><?php echo htmlspecialchars($superficie_total); ?></div>
         </div>
-        <?php elseif(isset($_SESSION['tipo_predio']) && strtoupper($_SESSION['tipo_predio']) == 'RUSTICO'): ?>
+        <?php elseif ($tipo_predio === 'RUSTICO'): ?>
         <div class="campo">
             <label>Superficie (hectáreas):</label>
-            <div><?php echo $_SESSION['sup_has'] ?? 'N/A'; ?></div>
+            <div><?php echo htmlspecialchars($sup_has); ?></div>
         </div>
         <?php endif; ?>
         <div class="campo">
             <label>Superficie Construida:</label>
-            <div><?php echo $_SESSION['superficie_construida'] ?? 'N/A'; ?></div>
+            <div><?php echo htmlspecialchars($superficie_construida); ?></div>
+        </div>
+        <div class="campo">
+            <label>Tipo de Trámite:</label>
+            <div><?php echo htmlspecialchars($tipo_tramite); ?></div>
+        </div>
+        <div class="campo">
+            <label>Dirección:</label>
+            <div><?php echo htmlspecialchars($direccion); ?></div>
+        </div>
+        <div class="campo">
+            <label>Denominación:</label>
+            <div><?php echo htmlspecialchars($denominacion); ?></div>
         </div>
         <div class="campo">
             <label>Procedente:</label>
-            <div><?php echo isset($_SESSION['procedente']) ? ($_SESSION['procedente'] ? 'Procedente' : 'No Procedente') : 'N/A'; ?></div>
+            <div><?php echo htmlspecialchars($procedente); ?></div>
         </div>
     </div>
     <button onclick="window.print()" class="no-print">Imprimir</button>
