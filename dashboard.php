@@ -123,51 +123,55 @@ session_start();
             $mensaje = rtrim($mensaje, ", ") . ".";
         } else {
             $permitido = true;
+
             // Si el tipo de trámite es "SERVICIO PUBLICO", omitir validaciones
             if ($tipo_tramite === "SERVICIO PUBLICO") {
-                $stmt_check = $conn->prepare("SELECT id_validacion FROM validacion WHERE nuc_im = ? OR curp = ?");
-                $stmt_check->bind_param("ss", $nuc_im, $curp);
+                $stmt_check = $conn->prepare("SELECT id_validacion FROM validacion WHERE nuc_im = ?");
+                $stmt_check->bind_param("s", $nuc_im);
                 $stmt_check->execute();
                 $result_check = $stmt_check->get_result();
                 if ($result_check->num_rows > 0) {
-                    $mensaje = "Ya existe un registro con el mismo NUC_IM o CURP.";
-                } else {
-                $permitido = true; // Saltar validaciones
-                // Configurar las variables de sesión necesarias para generar_nuc.php
-                $_SESSION['curp_validado'] = $curp;
-                $_SESSION['municipio_id'] = $municipio_id;
-                $_SESSION['nuc_im'] = $nuc_im;
-                $_SESSION['municipio_nombre'] = $municipio_nombre;
-                $_SESSION['tipo_predio'] = strtoupper($tipo_predio);
-                $_SESSION['tipo_tramite'] = $tipo_tramite;
-
-                // Insertar un registro en la tabla validacion para mantener consistencia
-                $fecha_consulta = date("Y-m-d H:i:s");
-                $stmt_insert_validacion = $conn->prepare("
-                    INSERT INTO validacion (nuc_im, curp, fecha_consulta, municipio, tipo_predio, tipo_tramite, superficie_total, sup_has) 
-                    VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)
-                ");
-                $stmt_insert_validacion->bind_param(
-                    "ssssss",
-                    $nuc_im,
-                    $curp,
-                    $fecha_consulta,
-                    $municipio_nombre,
-                    strtoupper($tipo_predio),
-                    $tipo_tramite
-                );
-
-                if ($stmt_insert_validacion->execute()) {
-                    $id_validacion = $stmt_insert_validacion->insert_id;
-                    $_SESSION['validacion_id'] = $id_validacion;
-
-                    // Redirigir a generar_nuc.php
-                    header("Location: generar_nuc.php");
-                    exit();
-                } else {
-                    $mensaje = "Error al insertar en validacion: " . $stmt_insert_validacion->error;
+                    $mensaje = "Ya existe un registro con el mismo NUC_IM.";
+                    $permitido = false;
                 }
-                $stmt_insert_validacion->close();
+                $stmt_check->close();
+
+                if ($permitido) {
+                    // Configurar las variables de sesión necesarias para generar_nuc.php
+                    $_SESSION['curp_validado'] = $curp;
+                    $_SESSION['municipio_id'] = $municipio_id;
+                    $_SESSION['nuc_im'] = $nuc_im;
+                    $_SESSION['municipio_nombre'] = $municipio_nombre;
+                    $_SESSION['tipo_predio'] = strtoupper($tipo_predio);
+                    $_SESSION['tipo_tramite'] = $tipo_tramite;
+
+                    // Insertar un registro en la tabla validacion para mantener consistencia
+                    $fecha_consulta = date("Y-m-d H:i:s");
+                    $stmt_insert_validacion = $conn->prepare("
+                        INSERT INTO validacion (nuc_im, curp, fecha_consulta, municipio, tipo_predio, tipo_tramite, superficie_total, sup_has) 
+                        VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)
+                    ");
+                    $stmt_insert_validacion->bind_param(
+                        "ssssss",
+                        $nuc_im,
+                        $curp,
+                        $fecha_consulta,
+                        $municipio_nombre,
+                        strtoupper($tipo_predio),
+                        $tipo_tramite
+                    );
+
+                    if ($stmt_insert_validacion->execute()) {
+                        $id_validacion = $stmt_insert_validacion->insert_id;
+                        $_SESSION['validacion_id'] = $id_validacion;
+
+                        // Redirigir a generar_nuc.php
+                        header("Location: generar_nuc.php");
+                        exit();
+                    } else {
+                        $mensaje = "Error al insertar en validacion: " . $stmt_insert_validacion->error;
+                    }
+                    $stmt_insert_validacion->close();
                 }
             } else {
                 // Verificar registros previos de validación para este CURP
@@ -188,7 +192,7 @@ session_start();
                     if (strcasecmp($row['tipo_predio'], 'URBANO') == 0 || strcasecmp($row['tipo_predio'], 'SUBURBANO') == 0) {
                         $total_urbanos = $row['total_predios'];
                     }
-                    if (strcasecmp($row['tipo_predio'], 'RURAL') == 0) {
+                    if (strcasecmp($row['tipo_predio'], 'RUSTICO') == 0) {
                         $total_sup_has_rural = $row['total_sup_has'];
                     }
                 }
@@ -196,67 +200,74 @@ session_start();
 
                 // Reglas de validación
                 if ((($tipo_predio === "urbano" || $tipo_predio === "suburbano") && $total_urbanos >= 1) || 
-                    ($tipo_predio === "rural" && ($total_sup_has_rural + $sup_has) > 6)) {
+                ($tipo_predio === "rustico" && ($total_sup_has_rural + $sup_has) > 60000)) {
                     $permitido = false;
-                }
-            }
-
-            if ($permitido) {
-                // Verificar duplicados antes de insertar
-                $stmt_check = $conn->prepare("SELECT id_validacion FROM validacion WHERE nuc_im = ? OR curp = ?");
-                $stmt_check->bind_param("ss", $nuc_im, $curp);
-                $stmt_check->execute();
-                $result_check = $stmt_check->get_result();
-                if ($result_check->num_rows > 0) {
-                    $mensaje = "Ya existe un registro con el mismo NUC_IM o CURP.";
-                } else {
-                    // Insertar en la tabla validacion
-                    $fecha_consulta = date("Y-m-d H:i:s");
-                    $tipo_predio_upper = strtoupper($tipo_predio);
-            
-                    // Determinar qué campo usar según el tipo de predio
-                    $superficie_total = ($tipo_predio === "urbano" || $tipo_predio === "suburbano") ? $superficie_total : null;
-                    $sup_has = ($tipo_predio === "rural") ? $sup_has : null;
-            
-                    $stmt_insert_validacion = $conn->prepare("
-                        INSERT INTO validacion (nuc_im, curp, fecha_consulta, municipio, tipo_predio, tipo_tramite, superficie_total, sup_has) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ");
-                    $stmt_insert_validacion->bind_param(
-                        "ssssssdd",
-                        $nuc_im,
-                        $curp,
-                        $fecha_consulta,
-                        $municipio_nombre,
-                        $tipo_predio_upper,
-                        $tipo_tramite,
-                        $superficie_total,
-                        $sup_has
-                    );
-            
-                    if ($stmt_insert_validacion->execute()) {
-                        $id_validacion = $stmt_insert_validacion->insert_id;
-            
-                        // Guardar datos en sesión
-                        $_SESSION['curp_validado'] = $curp;
-                        $_SESSION['municipio_id'] = $municipio_id;
-                        $_SESSION['nuc_im'] = $nuc_im;
-                        $_SESSION['municipio_nombre'] = $municipio_nombre;
-                        $_SESSION['tipo_predio'] = $tipo_predio_upper;
-                        $_SESSION['tipo_tramite'] = $tipo_tramite;
-                        $_SESSION['validacion_id'] = $id_validacion;
-                        $_SESSION['superficie_total'] = $superficie_total;
-                        $_SESSION['sup_has'] = $sup_has;
-            
-                        // Redirigir a generar_nuc.php
-                        header("Location: generar_nuc.php");
-                        exit();
-                    } else {
-                        $mensaje = "Error al insertar en validacion: " . $stmt_insert_validacion->error;
+                    $mensaje = "No se puede completar la validación. Reglas no cumplidas: ";
+                    if ($tipo_predio === "urbano" || $tipo_predio === "suburbano") {
+                        $mensaje .= "Solo se permite un predio urbano o suburbano. ";
                     }
-                    $stmt_insert_validacion->close();
+                    if ($tipo_predio === "rustico" && ($total_sup_has_rural + $sup_has) > 60000) {
+                        $mensaje .= "La superficie total de predios rústicos no puede exceder 60000 hectáreas.";
+                    }
                 }
-                $stmt_check->close();
+
+                if ($permitido) {
+                    // Verificar duplicados antes de insertar
+                    $stmt_check = $conn->prepare("SELECT id_validacion FROM validacion WHERE nuc_im = ?");
+                    $stmt_check->bind_param("s", $nuc_im);
+                    $stmt_check->execute();
+                    $result_check = $stmt_check->get_result();
+                    if ($result_check->num_rows > 0) {
+                        $mensaje = "Ya existe un registro con el mismo NUC_IM.";
+                    } else {
+                        // Insertar en la tabla validacion
+                        $fecha_consulta = date("Y-m-d H:i:s");
+                        $tipo_predio_upper = strtoupper($tipo_predio);
+
+                        // Determinar qué campo usar según el tipo de predio
+                        $superficie_total = ($tipo_predio === "urbano" || $tipo_predio === "suburbano") ? $superficie_total : null;
+                        $sup_has = ($tipo_predio === "rustico") ? $sup_has : null;
+
+                        $stmt_insert_validacion = $conn->prepare("
+                            INSERT INTO validacion (nuc_im, curp, fecha_consulta, municipio, tipo_predio, tipo_tramite, superficie_total, sup_has) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ");
+                        $stmt_insert_validacion->bind_param(
+                            "ssssssdd",
+                            $nuc_im,
+                            $curp,
+                            $fecha_consulta,
+                            $municipio_nombre,
+                            $tipo_predio_upper,
+                            $tipo_tramite,
+                            $superficie_total,
+                            $sup_has
+                        );
+
+                        if ($stmt_insert_validacion->execute()) {
+                            $id_validacion = $stmt_insert_validacion->insert_id;
+
+                            // Guardar datos en sesión
+                            $_SESSION['curp_validado'] = $curp;
+                            $_SESSION['municipio_id'] = $municipio_id;
+                            $_SESSION['nuc_im'] = $nuc_im;
+                            $_SESSION['municipio_nombre'] = $municipio_nombre;
+                            $_SESSION['tipo_predio'] = $tipo_predio_upper;
+                            $_SESSION['tipo_tramite'] = $tipo_tramite;
+                            $_SESSION['validacion_id'] = $id_validacion;
+                            $_SESSION['superficie_total'] = $superficie_total;
+                            $_SESSION['sup_has'] = $sup_has;
+
+                            // Redirigir a generar_nuc.php
+                            header("Location: generar_nuc.php");
+                            exit();
+                        } else {
+                            $mensaje = "Error al insertar en validacion: " . $stmt_insert_validacion->error;
+                        }
+                        $stmt_insert_validacion->close();
+                    }
+                    $stmt_check->close();
+                }
             }
         }
     }
@@ -829,7 +840,7 @@ session_start();
                     die("Conexión fallida: " . $conn->connect_error);
                 }
 
-                // manejar la consulta del formulario
+                // Manejar la consulta del formulario
                 $whereClauses = [];
                 $params = [];
                 $types = '';
@@ -864,48 +875,45 @@ session_start();
 
                 $whereClause = '';
                 if (!empty($whereClauses)) {
-                    $whereClause = 'WHERE ' . implode(' AND ', $whereClauses);
+                    $whereClause = ' AND ' . implode(' AND ', $whereClauses);
                 }
 
-                // realizar la consulta
+                // Realizar la consulta. Se asume que solo se muestran registros activos (estado = 1)
                 $sql = "SELECT ingresos.*, historiales.area_origen, historiales.area_destino 
                         FROM ingresos 
                         LEFT JOIN historiales ON ingresos.id_nuc = historiales.nuc_id 
-                        WHERE ingresos.estado = 1"; // Agregar la condición para mostrar solo registros activos
-                
-                if (!empty($whereClauses)) {
-                    $sql .= ' AND ' . implode(' AND ', $whereClauses); // Agregar filtros adicionales si existen
-                }
-                
+                        WHERE ingresos.estado = 1" . $whereClause . " 
+                        ORDER BY ingresos.id_nuc DESC"; // Los registros más recientes aparecerán primero
+
                 $stmt = $conn->prepare($sql);
                 if (!empty($params)) {
                     $stmt->bind_param($types, ...$params);
                 }
                 $stmt->execute();
                 $result = $stmt->get_result();
-                ?>
-    
+            ?>
+
             <?php if ($permisos['consultar']): ?>
             <section id="consultar" class="three">
                 <div class="container">
                     <header>
                         <h2>Consulta de ingresos de expedientes</h2>
                     </header>
-                    <form method="post" action="">
-                            <label for="nuc">NUC:</label>
-                            <input type="text" name="nuc" id="nuc">
+                    <form method="post" action="#consultar">
+                        <label for="nuc">NUC:</label>
+                        <input type="text" name="nuc" id="nuc">
 
-                            <label for="municipio">Municipio:</label>
-                            <input type="text" name="municipio" id="municipio">
+                        <label for="municipio">Municipio:</label>
+                        <input type="text" name="municipio" id="municipio">
 
-                            <label for="localidad">Localidad:</label>
-                            <input type="text" name="localidad" id="localidad">
+                        <label for="localidad">Localidad:</label>
+                        <input type="text" name="localidad" id="localidad">
 
-                            <label for="promovente">Promovente:</label>
-                            <input type="text" name="promovente" id="promovente">
+                        <label for="promovente">Promovente:</label>
+                        <input type="text" name="promovente" id="promovente">
 
-                            <label for="fecha">Fecha:</label>
-                            <input type="date" name="fecha" id="fecha">
+                        <label for="fecha">Fecha:</label>
+                        <input type="date" name="fecha" id="fecha">
                         <input type="submit" value="Buscar">
                     </form>
                     <div class="table-container">
@@ -914,7 +922,7 @@ session_start();
                                 <tr>
                                     <th>Fecha</th>
                                     <th>NUC</th>
-                                    <th>NUC SIM</th>
+                                    <th>NUCIM</th>
                                     <th>Municipio</th>
                                     <th>Localidad</th>
                                     <th>Promovente</th>
@@ -936,8 +944,15 @@ session_start();
                             </thead>
                             <tbody>
                             <?php
+                                // Usamos un arreglo para asegurarnos de imprimir solo el último registro para cada NUC
+                                $impresos = [];
                                 if ($result->num_rows > 0) {
                                     while ($row = $result->fetch_assoc()) {
+                                        // Si ya se imprimió un registro para este NUC, lo omitimos
+                                        if (isset($impresos[$row['nuc']])) {
+                                            continue;
+                                        }
+                                        $impresos[$row['nuc']] = true;
                                         echo "<tr>
                                                 <td>" . htmlspecialchars($row['fecha'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars($row['nuc'] ?? '') . "</td>
@@ -972,150 +987,157 @@ session_start();
                     </div>
                 </div>
             </section>
+
+
             <?php endif; ?>
             <!-- Seccion de asignar movimiento -->
             <?php
-                if ($_SERVER["REQUEST_METHOD"] == "POST") {
-                    $nuc_id = isset($_POST['nuc_id']) ? intval($_POST['nuc_id']) : null;
-                    $area_origen = isset($_POST['area_origen']) ? trim($_POST['area_origen']) : null;
-                    $area_destino = isset($_POST['area_destino']) ? trim($_POST['area_destino']) : null;
-                    $comentario = isset($_POST['comentario']) ? trim($_POST['comentario']) : null;
-                    $fecha_movimiento = !empty($_POST['fecha_movimiento']) ? $_POST['fecha_movimiento'] : null;
-                    $usuario_id = $_SESSION['user_id']; // Usuario autenticado
 
-                    if (!empty($nuc_id) && !empty($area_origen) && !empty($area_destino) && !empty($comentario)) {
-                        // Preparar la consulta
-                        if (is_null($fecha_movimiento)) {
-                            $stmt = $conn->prepare("INSERT INTO historiales (nuc_id, area_origen, area_destino, comentario, usuario_id) 
-                                                    VALUES (?, ?, ?, ?, ?)");
-                            $stmt->bind_param("isssi", $nuc_id, $area_origen, $area_destino, $comentario, $usuario_id);
-                        } else {
-                            $stmt = $conn->prepare("INSERT INTO historiales (nuc_id, area_origen, area_destino, comentario, fecha_movimiento, usuario_id) 
-                                                    VALUES (?, ?, ?, ?, ?, ?)");
-                            $stmt->bind_param("issssi", $nuc_id, $area_origen, $area_destino, $comentario, $fecha_movimiento, $usuario_id);
-                        }
+            if ($_SERVER["REQUEST_METHOD"] == "POST") {
+                $nuc_id = isset($_POST['nuc_id']) ? intval($_POST['nuc_id']) : null;
+                $area_origen = isset($_POST['area_origen']) ? trim($_POST['area_origen']) : null;
+                $area_destino = isset($_POST['area_destino']) ? trim($_POST['area_destino']) : null;
+                $comentario = isset($_POST['comentario']) ? trim($_POST['comentario']) : null;
+                $fecha_movimiento = !empty($_POST['fecha_movimiento']) ? $_POST['fecha_movimiento'] : null;
+                $usuario_id = $_SESSION['user_id']; // Usuario autenticado
 
-                        if ($stmt->execute()) {
-                            echo "<p style='color: green;'>Movimiento registrado correctamente.</p>";
-                        } else {
-                            echo "<p style='color: red;'>Error al registrar el movimiento: " . $stmt->error . "</p>";
-                        }
+                if (!empty($nuc_id) && !empty($area_origen) && !empty($area_destino) && !empty($comentario)) {
+
+                    // Preparar la consulta
+                    if (is_null($fecha_movimiento)) {
+                        $stmt = $conn->prepare("INSERT INTO historiales (nuc_id, area_origen, area_destino, comentario, usuario_id) 
+                                                VALUES (?, ?, ?, ?, ?)");
+                        $stmt->bind_param("isssi", $nuc_id, $area_origen, $area_destino, $comentario, $usuario_id);
                     } else {
-                        echo "<p style='color: red;'>Todos los campos son obligatorios.</p>";
-                    }
-                }
+                        $stmt = $conn->prepare("INSERT INTO historiales (nuc_id, area_origen, area_destino, comentario, fecha_movimiento, usuario_id) 
 
-                // Obtener áreas disponibles
-                $areas_result = $conn->query("SELECT nombre_area FROM areas");
-                $areas = [];
-                while ($row = $areas_result->fetch_assoc()) {
-                    $areas[] = $row['nombre_area'];
-                }
-
-                // Obtener NUCs disponibles
-                $nucs = $conn->query("SELECT id_nuc, nuc FROM ingresos WHERE estado = 1"); // Agregar esta condición
-                $nuc_list = [];
-                while ($row = $nucs->fetch_assoc()) {
-                    $nuc_list[] = ['id' => $row['id_nuc'], 'nuc' => $row['nuc']];
-                }
-            ?>
-            <?php if ($permisos['procesos']): ?>
-            <section id="asignarMovimiento" class="four">
-                <div class="container">
-                    <header>
-                        <h2>Asignar tarea a expedientes</h2>
-                    </header>
-                    <form method="POST">
-                        <label>NUC:</label>
-                        <input type="text" id="nuc_input" name="nuc_text" placeholder="Ingrese NUC" required>
-                        <input type="hidden" id="nuc_id" name="nuc_id">
-                        <ul id="nuc_suggestions" class="suggestions"></ul>
-
-                        <label>Área Origen:</label>
-                        <select name="area_origen" required>
-                            <?php foreach ($areas as $area): ?>
-                                <option value="<?php echo $area; ?>"><?php echo $area; ?></option>
-                            <?php endforeach; ?>
-                        </select>
-
-                        <label>Área Destino:</label>
-                        <select name="area_destino" required>
-                            <?php foreach ($areas as $area): ?>
-                                <option value="<?php echo $area; ?>"><?php echo $area; ?></option>
-                            <?php endforeach; ?>
-                        </select>
-
-                        <label>Comentario:</label>
-                        <input type="text" name="comentario" required>
-
-                        <label>Fecha Movimiento:</label>
-                        <input type="datetime-local" name="fecha_movimiento">
-
-                        <button type="submit">Registrar Movimiento</button>
-                    </form>
-                </div>
-            </section>
-            <?php endif; ?>
-            <script>
-                document.addEventListener("DOMContentLoaded", function () {
-                    const nucInput = document.getElementById("nuc_input");
-                    const nucIdInput = document.getElementById("nuc_id");
-                    const suggestionList = document.getElementById("nuc_suggestions");
-                    const historialBody = document.getElementById("historial_body");
-
-                    const nucs = <?php echo json_encode($nuc_list); ?>;
-
-                    function fetchHistorial(nucId = null) {
-                        fetch("actualizar_historial.php?nuc_id=" + (nucId || ""))
-                            .then(response => response.text())
-                            .then(data => {
-                                historialBody.innerHTML = data;
-                            });
+                                                VALUES (?, ?, ?, ?, ?, ?)");
+                        $stmt->bind_param("issssi", $nuc_id, $area_origen, $area_destino, $comentario, $fecha_movimiento, $usuario_id);
                     }
 
-                    nucInput.addEventListener("input", function () {
-                        const search = this.value.toLowerCase();
-                        suggestionList.innerHTML = "";
 
-                        if (search.length === 0) {
-                            suggestionList.style.display = "none";
-                            fetchHistorial(); // Si se borra el campo, se cargan los últimos 10 movimientos
-                            return;
-                        }
 
-                        const filteredNucs = nucs.filter(nuc => nuc.nuc.toLowerCase().includes(search));
+                    if ($stmt->execute()) {
+                        echo "<p style='color: green;'>Movimiento registrado correctamente.</p>";
+                    } else {
+                        echo "<p style='color: red;'>Error al registrar el movimiento: " . $stmt->error . "</p>";
+                    }
+                } else {
 
-                        if (filteredNucs.length === 0) {
-                            suggestionList.style.display = "none";
-                            return;
-                        }
+                    echo "<p style='color: red;'>Todos los campos son obligatorios.</p>";
+                }
+            }
 
-                        filteredNucs.forEach(nuc => {
-                            const li = document.createElement("li");
-                            li.textContent = nuc.nuc;
-                            li.dataset.id = nuc.id;
-                            li.onclick = function () {
-                                nucInput.value = nuc.nuc;
-                                nucIdInput.value = nuc.id;
-                                suggestionList.innerHTML = "";
-                                suggestionList.style.display = "none";
-                                fetchHistorial(nuc.id); // Filtrar historial por el NUC seleccionado
-                            };
-                            suggestionList.appendChild(li);
+
+
+            // Obtener áreas disponibles
+
+            $areas_result = $conn->query("SELECT nombre_area FROM areas");
+            $areas = [];
+            while ($row = $areas_result->fetch_assoc()) {
+                $areas[] = $row['nombre_area'];
+            }
+
+
+
+            // Obtener NUCs disponibles
+            $nucs = $conn->query("SELECT id_nuc, nuc FROM ingresos WHERE estado = 1"); // Agregar esta condición
+            $nuc_list = [];
+            while ($row = $nucs->fetch_assoc()) {
+                $nuc_list[] = ['id' => $row['id_nuc'], 'nuc' => $row['nuc']];
+            }
+        ?>
+
+        <?php if ($permisos['procesos']): ?>
+        <section id="asignarMovimiento" class="four">
+            <div class="container">
+                <header>
+                    <h2>Asignar tarea a expedientes</h2>
+                </header>
+
+                <form method="POST" action="dashboard.php">
+                    <label>NUC:</label>
+                    <input type="text" id="nuc_input" name="nuc_text" placeholder="Ingrese NUC" required>
+                    <input type="hidden" id="nuc_id" name="nuc_id">
+                    <ul id="nuc_suggestions" class="suggestions"></ul>
+                    <label>Área Origen:</label>
+                    <select name="area_origen" required>
+
+                        <?php foreach ($areas as $area): ?>
+                            <option value="<?php echo $area; ?>"><?php echo $area; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <label>Área Destino:</label>
+                    <select name="area_destino" required>
+                        <?php foreach ($areas as $area): ?>
+                            <option value="<?php echo $area; ?>"><?php echo $area; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <label>Comentario:</label>
+                    <input type="text" name="comentario" required>
+                    <label>Fecha Movimiento:</label>
+                    <input type="datetime-local" name="fecha_movimiento">
+                    <button type="submit">Registrar Movimiento</button>
+                </form>
+            </div>
+        </section>
+        <?php endif; ?>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const nucInput = document.getElementById("nuc_input");
+                const nucIdInput = document.getElementById("nuc_id");
+                const suggestionList = document.getElementById("nuc_suggestions");
+                const historialBody = document.getElementById("historial_body");
+                const nucs = <?php echo json_encode($nuc_list); ?>;
+
+                function fetchHistorial(nucId = null) {
+                    fetch("actualizar_historial.php?nuc_id=" + (nucId || ""))
+                        .then(response => response.text())
+                        .then(data => {
+                            historialBody.innerHTML = data;
                         });
+                }
+                nucInput.addEventListener("input", function () {
+                    const search = this.value.toLowerCase();
+                    suggestionList.innerHTML = "";
+                    if (search.length === 0) {
+                        suggestionList.style.display = "none";
+                        fetchHistorial(); // Si se borra el campo, se cargan los últimos 10 movimientos
+                        return;
+                    }
 
-                        suggestionList.style.display = "block";
-                    });
+                    const filteredNucs = nucs.filter(nuc => nuc.nuc.toLowerCase().includes(search));
 
-                    document.addEventListener("click", function (e) {
-                        if (!nucInput.contains(e.target) && !suggestionList.contains(e.target)) {
+                    if (filteredNucs.length === 0) {
+                        suggestionList.style.display = "none";
+                        return;
+                    }
+
+                    filteredNucs.forEach(nuc => {
+                        const li = document.createElement("li");
+                        li.textContent = nuc.nuc;
+                        li.dataset.id = nuc.id;
+                        li.onclick = function () {
+                            nucInput.value = nuc.nuc;
+                            nucIdInput.value = nuc.id;
+                            suggestionList.innerHTML = "";
                             suggestionList.style.display = "none";
-                        }
+                            fetchHistorial(nuc.id); // Filtrar historial por el NUC seleccionado
+                        };
+                        suggestionList.appendChild(li);
                     });
-
-                    fetchHistorial(); // Cargar los últimos 10 movimientos al cargar la página
+                    suggestionList.style.display = "block";
                 });
-            </script>
+
+                document.addEventListener("click", function (e) {
+                    if (!nucInput.contains(e.target) && !suggestionList.contains(e.target)) {
+                        suggestionList.style.display = "none";
+                    }
+                });
+                fetchHistorial(); // Cargar los últimos 10 movimientos al cargar la página
+            });
+        </script>
 
             <!-- Seccion de pre-registro -->
             <?php if ($permisos['ingresar']): ?>
@@ -1137,7 +1159,7 @@ session_start();
                             // Muestra el campo correspondiente según el tipo de predio seleccionado
                             if (tipoPredio === 'URBANO' || tipoPredio === 'SUBURBANO') {
                                 campoSuperficieTotal.classList.remove('hidden');
-                            } else if (tipoPredio === 'RURAL') {
+                            } else if (tipoPredio === 'RUSTICO') {
                                 campoSupHas.classList.remove('hidden');
                             }
                         }
@@ -1173,7 +1195,7 @@ session_start();
                             <option value="">Seleccione una opción</option>
                             <option value="URBANO">Urbano</option>
                             <option value="SUBURBANO">Suburbano</option>
-                            <option value="RURAL">Rural</option>
+                            <option value="RUSTICO">Rústico</option>
                         </select>
 
                         <div id="campo_superficie_total" class="hidden">
@@ -1190,7 +1212,9 @@ session_start();
                         
                         <button type="submit">Validar y Guardar</button>
                     </form>
-                    <?php if (!empty($mensaje)) echo "<p>$mensaje</p>"; ?>
+                    <?php if (!empty($mensaje)): ?>
+                        <p style="color: red;"><?php echo htmlspecialchars($mensaje); ?></p>
+                    <?php endif; ?>
                 </div>
                 <?php
                     ob_end_flush(); // Envía la salida almacenada y finaliza el buffer
